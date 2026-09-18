@@ -1,17 +1,43 @@
 // ============================================================
-// BUDGET TRACKER – Front-end Logic (no backend)
+// BUDGET TRACKER – Front-end Logic (Supabase via /api)
 // ============================================================
+
+const API = {
+  incomes: '/api/incomes',
+  fixed: '/api/fixed-expenses',
+  daily: '/api/daily-expenses',
+};
 
 let currentTab = 'fixed';
 let editingItem = null;
+let fixedExpenses = [];
+let dailyExpenses = [];
+let incomes = [];
 
-// ===== FORMAT =====
+const CATEGORY_META = {
+  'Tiền Mua Nhà': { icon: '🏠', color: '#e8f5e9', fg: '#43a047' },
+  'Tiền Sinh Hoạt': { icon: '🏡', color: '#fff3e0', fg: '#ef6c00' },
+  'Thẻ Tín Dụng': { icon: '💳', color: '#fce4ec', fg: '#e53935' },
+};
+
+const ITEM_ICONS = {
+  'Tiền gốc': { icon: '🏠', bg: '#e8f5e9', fg: '#43a047' },
+  'Tiền lãi': { icon: '🏠', bg: '#fff3e0', fg: '#ef6c00' },
+  'Tiền Điện': { icon: '⚡', bg: '#fff3e0', fg: '#ef6c00' },
+  'Tiền Nước': { icon: '💧', bg: '#e3f2fd', fg: '#1e88e5' },
+  'Tiền Mạng': { icon: '📡', bg: '#ede7f6', fg: '#5e35b1' },
+  'Phí dịch vụ': { icon: '🏢', bg: '#e0f2f1', fg: '#00897b' },
+  'Phí gửi xe': { icon: '🏍️', bg: '#fce4ec', fg: '#d81b60' },
+  'Thẻ tín dụng HSBC': { icon: '💳', bg: '#fce4ec', fg: '#e53935' },
+  'Thẻ tín dụng VCB': { icon: '💳', bg: '#e8f5e9', fg: '#43a047' },
+};
+
 function fmt(n) {
-  return n.toLocaleString('vi-VN') + '₫';
+  return Number(n || 0).toLocaleString('vi-VN') + '₫';
 }
 
 function parseAmt(str) {
-  return parseInt(str.replace(/[.₫\s]/g, ''), 10) || 0;
+  return parseInt(String(str).replace(/[.₫\s]/g, ''), 10) || 0;
 }
 
 function escHtml(s) {
@@ -20,20 +46,40 @@ function escHtml(s) {
   return d.innerHTML;
 }
 
-// ===== TABS =====
+function formatMetaDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const today = new Date();
+  const sameDay =
+    d.getDate() === today.getDate() &&
+    d.getMonth() === today.getMonth() &&
+    d.getFullYear() === today.getFullYear();
+  const time = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+  return sameDay ? `Hôm nay, ${time}` : d.toLocaleDateString('vi-VN') + ', ' + time;
+}
+
+async function api(url, options = {}) {
+  const res = await fetch(url, {
+    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+    ...options,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+
 function switchTab(tab) {
   currentTab = tab;
 
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
   document.getElementById('tab-' + tab).classList.add('active');
 
-  document.querySelectorAll('.tab-content').forEach(l => l.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach((l) => l.classList.remove('active'));
   document.getElementById('content-' + tab).classList.add('active');
 
   const fab = document.getElementById('fab');
-  if (fab) {
-    fab.style.display = (tab === 'daily' || tab === 'income') ? 'flex' : 'none';
-  }
+  if (fab) fab.style.display = 'flex';
 
   checkEmpty();
 }
@@ -46,61 +92,29 @@ function checkEmpty() {
   }
 }
 
-// ===== SUMMARY & RECALCULATION =====
 function updateSummary() {
   let INCOME = 0;
   let fixedTotal = 0;
   let dailyTotal = 0;
 
-  // Calculate Income
-  document.querySelectorAll('#content-income .item').forEach(el => {
-    INCOME += parseInt(el.getAttribute('data-amount'), 10) || 0;
+  incomes.forEach((row) => {
+    INCOME += Number(row.amount) || 0;
   });
   document.getElementById('income-display').textContent = fmt(INCOME);
 
-  // Calculate Fixed Totals from data attributes or amount display
-  document.querySelectorAll('#content-fixed .item').forEach(el => {
-    let actual = parseInt(el.getAttribute('data-actual'), 10) || 0;
-    let estimate = parseInt(el.getAttribute('data-estimate'), 10) || 0;
-    let amt = actual > 0 ? actual : estimate;
-    fixedTotal += amt;
-    
-    // update display just in case
-    el.querySelector('.item-amount').textContent = fmt(amt);
-    
-    // update due text
-    let dueSpan = el.querySelector('.item-due');
-    let isPaid = el.getAttribute('data-paid') === 'true';
-    if (isPaid) {
-      dueSpan.className = 'item-due paid';
-      dueSpan.textContent = 'Đã trả ✓';
-    } else {
-      dueSpan.className = 'item-due';
-      dueSpan.textContent = 'Chưa trả';
-      // simple logic for due dates if they exist
-      let due = el.getAttribute('data-due');
-      if (due) {
-         let today = new Date().getDate();
-         let dueNum = parseInt(due, 10);
-         if (dueNum > today) {
-           let diff = dueNum - today;
-           if (diff <= 3) {
-             dueSpan.className = 'item-due warning';
-           }
-           dueSpan.textContent = `Còn ${diff} ngày`;
-         }
-      }
-    }
+  fixedExpenses.forEach((row) => {
+    const actual = Number(row.actual_amount) || 0;
+    const estimate = Number(row.estimate_amount) || 0;
+    fixedTotal += actual > 0 ? actual : estimate;
   });
 
-  // Calculate Daily Totals
-  document.querySelectorAll('#daily-list .item-amount').forEach(el => {
-    dailyTotal += parseAmt(el.textContent);
+  dailyExpenses.forEach((row) => {
+    dailyTotal += Number(row.amount) || 0;
   });
 
   const total = fixedTotal + dailyTotal;
   const remaining = INCOME - total;
-  const pct = Math.min(Math.round((total / INCOME) * 100), 100);
+  const pct = INCOME > 0 ? Math.min(Math.round((total / INCOME) * 100), 100) : 0;
 
   document.getElementById('spent-display').textContent = fmt(total);
   document.getElementById('remaining-display').textContent = fmt(remaining);
@@ -112,20 +126,148 @@ function updateSummary() {
   checkEmpty();
 }
 
-// ===== ADD MODAL (DAILY & INCOME) =====
-function openModal() {
-  if (currentTab !== 'daily' && currentTab !== 'income') {
-    switchTab('daily');
+function dueLabel(row) {
+  if (row.is_paid) return { text: 'Đã trả ✓', className: 'item-due paid' };
+  if (row.due_day) {
+    const today = new Date().getDate();
+    const dueNum = Number(row.due_day);
+    if (dueNum >= today) {
+      const diff = dueNum - today;
+      return {
+        text: `Còn ${diff} ngày`,
+        className: diff <= 3 ? 'item-due warning' : 'item-due',
+      };
+    }
   }
-  
+  return { text: 'Chưa trả', className: 'item-due' };
+}
+
+function renderFixed() {
+  const container = document.getElementById('content-fixed');
+  const groups = {};
+  fixedExpenses.forEach((row) => {
+    const cat = row.category || 'Khác';
+    if (!groups[cat]) groups[cat] = [];
+    groups[cat].push(row);
+  });
+
+  const order = ['Tiền Mua Nhà', 'Tiền Sinh Hoạt', 'Thẻ Tín Dụng'];
+  const cats = [
+    ...order.filter((c) => groups[c]),
+    ...Object.keys(groups).filter((c) => !order.includes(c)),
+  ];
+
+  if (cats.length === 0) {
+    container.innerHTML =
+      '<div class="empty-state"><span class="empty-icon">📭</span><p>Chưa có khoản cố định</p></div>';
+    return;
+  }
+
+  container.innerHTML = cats
+    .map((cat) => {
+      const meta = CATEGORY_META[cat] || { icon: '📌' };
+      const items = groups[cat]
+        .map((row) => {
+          const actual = Number(row.actual_amount) || 0;
+          const estimate = Number(row.estimate_amount) || 0;
+          const amt = actual > 0 ? actual : estimate;
+          const due = dueLabel(row);
+          const icon = ITEM_ICONS[row.name] || {
+            icon: meta.icon || '📌',
+            bg: meta.color || '#eceff1',
+            fg: meta.fg || '#546e7a',
+          };
+          const metaText = row.due_day ? `Ngày ${row.due_day} hàng tháng` : 'Phát sinh';
+          return `
+            <li class="item" data-id="${row.id}">
+              <div class="item-icon" style="background:${icon.bg}; color:${icon.fg};">${icon.icon}</div>
+              <div class="item-body">
+                <span class="item-name">${escHtml(row.name)}</span>
+                <span class="item-meta">${escHtml(metaText)}</span>
+              </div>
+              <div class="item-right">
+                <span class="item-amount">${fmt(amt)}</span>
+                <span class="${due.className}">${due.text}</span>
+              </div>
+              <div class="item-actions">
+                <button class="action-btn edit" onclick="editFixedItem(this)" aria-label="Sửa">✏️</button>
+                <button class="action-btn delete" onclick="deleteFixedFromList(this)" aria-label="Xóa">🗑️</button>
+              </div>
+            </li>`;
+        })
+        .join('');
+
+      return `
+        <div class="list-group">
+          <h3 class="list-group-title">${meta.icon} ${escHtml(cat)}</h3>
+          <ul class="item-list">${items}</ul>
+        </div>`;
+    })
+    .join('');
+}
+
+function renderDaily() {
+  const list = document.getElementById('daily-list');
+  list.innerHTML = dailyExpenses
+    .map(
+      (row) => `
+      <li class="item" data-id="${row.id}">
+        <div class="item-body">
+          <span class="item-name">${escHtml(row.name)}</span>
+          <span class="item-meta">${escHtml(formatMetaDate(row.created_at) || 'Chi tiêu')}</span>
+        </div>
+        <div class="item-right">
+          <span class="item-amount">${fmt(row.amount)}</span>
+        </div>
+        <div class="item-actions">
+          <button class="action-btn edit" onclick="editItem(this)" aria-label="Sửa">✏️</button>
+          <button class="action-btn delete" onclick="deleteItem(this)" aria-label="Xóa">🗑️</button>
+        </div>
+      </li>`
+    )
+    .join('');
+  checkEmpty();
+}
+
+function renderIncomes() {
+  const list = document.getElementById('income-list');
+  list.innerHTML = incomes
+    .map(
+      (row) => `
+      <li class="item" data-id="${row.id}" data-amount="${row.amount}">
+        <div class="item-body">
+          <span class="item-name">${escHtml(row.name)}</span>
+          <span class="item-meta">Nguồn thu</span>
+        </div>
+        <div class="item-right">
+          <span class="item-amount" style="color:var(--green);">${fmt(row.amount)}</span>
+        </div>
+        <div class="item-actions">
+          <button class="action-btn edit" onclick="editIncomeItem(this)" aria-label="Sửa">✏️</button>
+          <button class="action-btn delete" onclick="deleteItem(this)" aria-label="Xóa">🗑️</button>
+        </div>
+      </li>`
+    )
+    .join('');
+}
+
+function openModal() {
   document.getElementById('input-name').value = '';
   document.getElementById('input-amount').value = '';
+  document.getElementById('input-due').value = '';
+  document.getElementById('input-category').value = 'Tiền Sinh Hoạt';
 
-  if (currentTab === 'income') {
-    document.getElementById('modal-title').textContent = 'Thêm Nguồn Thu';
-  } else {
-    document.getElementById('modal-title').textContent = 'Thêm Chi Phí Hàng Ngày';
-  }
+  const isFixed = currentTab === 'fixed';
+  document.getElementById('group-category').style.display = isFixed ? '' : 'none';
+  document.getElementById('group-due').style.display = isFixed ? '' : 'none';
+  document.getElementById('label-amount').textContent = isFixed ? 'Dự tính (₫)' : 'Số tiền (₫)';
+
+  const titles = {
+    income: 'Thêm Nguồn Thu',
+    fixed: 'Thêm Khoản Cố Định',
+    daily: 'Thêm Chi Phí Hàng Ngày',
+  };
+  document.getElementById('modal-title').textContent = titles[currentTab] || titles.daily;
 
   document.getElementById('modal').classList.add('active');
   document.getElementById('modal-overlay').classList.add('active');
@@ -138,7 +280,7 @@ function closeModal() {
   document.getElementById('modal-overlay').classList.remove('active');
 }
 
-function saveExpense() {
+async function saveExpense() {
   const name = document.getElementById('input-name').value.trim();
   const amount = parseInt(document.getElementById('input-amount').value, 10);
 
@@ -150,49 +292,45 @@ function saveExpense() {
     return;
   }
 
-  const list = currentTab === 'income' ? document.getElementById('income-list') : document.getElementById('daily-list');
-
-  const li = document.createElement('li');
-  li.className = 'item';
-  li.style.animation = 'fadeInUp 0.3s ease both';
-  
-  if (currentTab === 'income') {
-    li.setAttribute('data-amount', amount);
-    li.innerHTML = `
-      <div class="item-body">
-        <span class="item-name">${escHtml(name)}</span>
-        <span class="item-meta">Vừa thêm</span>
-      </div>
-      <div class="item-right">
-        <span class="item-amount" style="color:var(--green);">${fmt(amount)}</span>
-      </div>
-      <div class="item-actions">
-        <button class="action-btn edit" onclick="editIncomeItem(this)" aria-label="Sửa">✏️</button>
-        <button class="action-btn delete" onclick="deleteItem(this)" aria-label="Xóa">🗑️</button>
-      </div>
-    `;
-  } else {
-    li.innerHTML = `
-      <div class="item-body">
-        <span class="item-name">${escHtml(name)}</span>
-        <span class="item-meta">Vừa thêm</span>
-      </div>
-      <div class="item-right">
-        <span class="item-amount">${fmt(amount)}</span>
-      </div>
-      <div class="item-actions">
-        <button class="action-btn edit" onclick="editItem(this)" aria-label="Sửa">✏️</button>
-        <button class="action-btn delete" onclick="deleteItem(this)" aria-label="Xóa">🗑️</button>
-      </div>
-    `;
+  try {
+    if (currentTab === 'income') {
+      const row = await api(API.incomes, {
+        method: 'POST',
+        body: JSON.stringify({ name, amount }),
+      });
+      incomes.push(row);
+      renderIncomes();
+    } else if (currentTab === 'fixed') {
+      const category = document.getElementById('input-category').value;
+      const dueRaw = document.getElementById('input-due').value.trim();
+      const row = await api(API.fixed, {
+        method: 'POST',
+        body: JSON.stringify({
+          name,
+          category,
+          estimate_amount: amount,
+          actual_amount: 0,
+          due_day: dueRaw,
+          is_paid: false,
+        }),
+      });
+      fixedExpenses.push(row);
+      renderFixed();
+    } else {
+      const row = await api(API.daily, {
+        method: 'POST',
+        body: JSON.stringify({ name, amount }),
+      });
+      dailyExpenses.unshift(row);
+      renderDaily();
+    }
+    closeModal();
+    updateSummary();
+  } catch (err) {
+    alert('Không lưu được: ' + err.message);
   }
-  list.appendChild(li);
-
-  closeModal();
-  updateSummary();
 }
 
-// ===== EDIT DAILY =====
 function editItem(btn) {
   editingItem = btn.closest('.item');
   const name = editingItem.querySelector('.item-name').textContent;
@@ -213,36 +351,41 @@ function closeEditModal() {
   editingItem = null;
 }
 
-function saveEdit() {
+async function saveEdit() {
   if (!editingItem) return;
 
+  const id = editingItem.getAttribute('data-id');
   const name = document.getElementById('edit-name').value.trim();
   const amount = parseInt(document.getElementById('edit-amount').value, 10);
 
   if (!name || isNaN(amount) || amount <= 0) return;
 
-  editingItem.querySelector('.item-name').textContent = name;
-  editingItem.querySelector('.item-amount').textContent = fmt(amount);
-  editingItem.querySelector('.item-meta').textContent = 'Vừa sửa';
-
-  closeEditModal();
-  updateSummary();
+  try {
+    const row = await api(API.daily, {
+      method: 'PUT',
+      body: JSON.stringify({ id, name, amount }),
+    });
+    const idx = dailyExpenses.findIndex((r) => r.id === id);
+    if (idx >= 0) dailyExpenses[idx] = row;
+    renderDaily();
+    closeEditModal();
+    updateSummary();
+  } catch (err) {
+    alert('Không cập nhật được: ' + err.message);
+  }
 }
 
-// ===== EDIT FIXED =====
 function editFixedItem(btn) {
   editingItem = btn.closest('.item');
-  const title = editingItem.querySelector('.item-name').textContent;
-  const due = editingItem.getAttribute('data-due') || '';
-  const est = editingItem.getAttribute('data-estimate') || '';
-  const act = editingItem.getAttribute('data-actual') || '';
-  const paid = editingItem.getAttribute('data-paid') === 'true';
+  const id = editingItem.getAttribute('data-id');
+  const row = fixedExpenses.find((r) => r.id === id);
+  if (!row) return;
 
-  document.getElementById('edit-fixed-title').textContent = title;
-  document.getElementById('edit-fixed-due').value = due;
-  document.getElementById('edit-fixed-estimate').value = est;
-  document.getElementById('edit-fixed-actual').value = act;
-  document.getElementById('edit-fixed-paid').checked = paid;
+  document.getElementById('edit-fixed-title').textContent = row.name;
+  document.getElementById('edit-fixed-due').value = row.due_day ?? '';
+  document.getElementById('edit-fixed-estimate').value = row.estimate_amount ?? '';
+  document.getElementById('edit-fixed-actual').value = row.actual_amount || '';
+  document.getElementById('edit-fixed-paid').checked = Boolean(row.is_paid);
 
   document.getElementById('edit-fixed-modal').classList.add('active');
   document.getElementById('edit-fixed-overlay').classList.add('active');
@@ -256,33 +399,36 @@ function closeEditFixedModal() {
   editingItem = null;
 }
 
-function saveEditFixed() {
+async function saveEditFixed() {
   if (!editingItem) return;
 
+  const id = editingItem.getAttribute('data-id');
   const due = document.getElementById('edit-fixed-due').value.trim();
   const est = parseInt(document.getElementById('edit-fixed-estimate').value, 10) || 0;
   const act = parseInt(document.getElementById('edit-fixed-actual').value, 10) || 0;
   const paid = document.getElementById('edit-fixed-paid').checked;
 
-  editingItem.setAttribute('data-due', due);
-  editingItem.setAttribute('data-estimate', est);
-  editingItem.setAttribute('data-actual', act);
-  editingItem.setAttribute('data-paid', paid);
-
-  let meta = editingItem.querySelector('.item-meta');
-  if (due) {
-    if (editingItem.getAttribute('data-id').startsWith('credit')) {
-      meta.textContent = `Ngày ${due} hàng tháng`;
-    } else {
-      meta.textContent = `Ngày ${due} hàng tháng`;
-    }
+  try {
+    const row = await api(API.fixed, {
+      method: 'PUT',
+      body: JSON.stringify({
+        id,
+        estimate_amount: est,
+        actual_amount: act,
+        due_day: due,
+        is_paid: paid,
+      }),
+    });
+    const idx = fixedExpenses.findIndex((r) => r.id === id);
+    if (idx >= 0) fixedExpenses[idx] = row;
+    renderFixed();
+    closeEditFixedModal();
+    updateSummary();
+  } catch (err) {
+    alert('Không cập nhật được: ' + err.message);
   }
-
-  closeEditFixedModal();
-  updateSummary();
 }
 
-// ===== EDIT INCOME =====
 function editIncomeItem(btn) {
   editingItem = btn.closest('.item');
   const title = editingItem.querySelector('.item-name').textContent;
@@ -304,33 +450,110 @@ function closeEditIncomeModal() {
   editingItem = null;
 }
 
-function saveEditIncome() {
+async function saveEditIncome() {
   if (!editingItem) return;
 
+  const id = editingItem.getAttribute('data-id');
   const name = document.getElementById('edit-income-name').value.trim();
   const amount = parseInt(document.getElementById('edit-income-amount').value, 10) || 0;
 
-  if (!name) return;
+  if (!name || amount <= 0) return;
 
-  editingItem.querySelector('.item-name').textContent = name;
-  editingItem.setAttribute('data-amount', amount);
-  editingItem.querySelector('.item-amount').textContent = fmt(amount);
-
-  closeEditIncomeModal();
-  updateSummary();
-}
-
-
-// ===== DELETE DAILY =====
-function deleteItem(btn) {
-  const item = btn.closest('.item');
-  
-  item.style.animation = 'slideOut 0.3s ease forwards';
-  setTimeout(() => {
-    item.remove();
+  try {
+    const row = await api(API.incomes, {
+      method: 'PUT',
+      body: JSON.stringify({ id, name, amount }),
+    });
+    const idx = incomes.findIndex((r) => r.id === id);
+    if (idx >= 0) incomes[idx] = row;
+    renderIncomes();
+    closeEditIncomeModal();
     updateSummary();
-  }, 300);
+  } catch (err) {
+    alert('Không cập nhật được: ' + err.message);
+  }
 }
 
-// ===== INIT =====
-updateSummary();
+async function deleteItem(btn) {
+  const item = btn.closest('.item');
+  const id = item.getAttribute('data-id');
+  const isIncome = currentTab === 'income';
+  const endpoint = isIncome ? API.incomes : API.daily;
+
+  try {
+    await api(endpoint, {
+      method: 'DELETE',
+      body: JSON.stringify({ id }),
+    });
+
+    if (isIncome) {
+      incomes = incomes.filter((r) => r.id !== id);
+      renderIncomes();
+    } else {
+      dailyExpenses = dailyExpenses.filter((r) => r.id !== id);
+      renderDaily();
+    }
+    updateSummary();
+  } catch (err) {
+    alert('Không xóa được: ' + err.message);
+  }
+}
+
+async function deleteFixedFromList(btn) {
+  const item = btn.closest('.item');
+  const id = item.getAttribute('data-id');
+  if (!confirm('Xóa khoản cố định này?')) return;
+  try {
+    await api(API.fixed, { method: 'DELETE', body: JSON.stringify({ id }) });
+    fixedExpenses = fixedExpenses.filter((r) => r.id !== id);
+    renderFixed();
+    updateSummary();
+  } catch (err) {
+    alert('Không xóa được: ' + err.message);
+  }
+}
+
+async function deleteFixedItem() {
+  if (!editingItem) return;
+  const id = editingItem.getAttribute('data-id');
+  if (!confirm('Xóa khoản cố định này?')) return;
+  try {
+    await api(API.fixed, { method: 'DELETE', body: JSON.stringify({ id }) });
+    fixedExpenses = fixedExpenses.filter((r) => r.id !== id);
+    renderFixed();
+    closeEditFixedModal();
+    updateSummary();
+  } catch (err) {
+    alert('Không xóa được: ' + err.message);
+  }
+}
+
+async function loadAll() {
+  const status = document.getElementById('load-status');
+  if (status) status.textContent = 'Đang tải dữ liệu...';
+
+  try {
+    const [fixed, daily, incomeRows] = await Promise.all([
+      api(API.fixed),
+      api(API.daily),
+      api(API.incomes),
+    ]);
+    fixedExpenses = fixed;
+    dailyExpenses = daily;
+    incomes = incomeRows;
+    renderFixed();
+    renderDaily();
+    renderIncomes();
+    updateSummary();
+    if (status) status.textContent = '';
+  } catch (err) {
+    console.error(err);
+    if (status) status.textContent = 'Không kết nối được database. Chạy API local hoặc deploy Vercel.';
+  }
+}
+
+const now = new Date();
+document.querySelector('.header-sub').textContent =
+  'Tháng ' + (now.getMonth() + 1) + ', ' + now.getFullYear();
+
+loadAll();

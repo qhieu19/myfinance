@@ -1,16 +1,46 @@
-Vấn đề: 
-Mỗi tháng tôi có một nguồn thu cố định khoảng 60 triệu, tôi có vài khoản phải trả cố định vào các ngày khác nhau, và những khoản chi sinh hoạt hàng ngày. Tôi phải nhớ và trả đúng hạn các khoản cố định, và chi tiêu hợp lý sinh hoạt để tránh tiêu quá tiền. 
+# MyFinance – Plan
 
-Giải pháp: hãy tạo cho tôi một webapp để nhập các khoản phải trả cố định và các khoản chi sinh hoạt hàng ngày. Ứng dụng sẽ tính toán và hiển thị cho tôi số tiền còn lại sau khi trừ các khoản phải trả cố định và các khoản chi sinh hoạt hàng ngày.
+## Problem
+Monthly income ~60M VND. Need to track fixed bills (due on different days) and daily spending, then always see remaining balance.
 
-Techstack: Vercel plan Hobby, supabase free
+## Solution
+Simple mobile-friendly web app: incomes + fixed expenses + daily expenses, with live remaining balance.
 
-UI/UX:
-- Hãy thiết kế cho tôi một giao diện đơn giản, dễ sử dụng.
-- Màu sắc thì tùy bạn chọn, nhưng phải hài hòa, dễ chịu.
+## Stack
+- **Frontend**: vanilla HTML/CSS/JS (`frontend/`)
+- **API**: Node routes (`api/`) — local via `server.js`, deploy on Vercel Hobby
+- **DB**: Supabase Postgres (Session pooler)
+- Secrets in `.env` only (`DATABASE_URL`). Never commit `.env`.
 
-Tính năng:
-- Có thể thêm, sửa, xóa các khoản phải trả cố định.
-- Có thể thêm, sửa, xóa các khoản chi sinh hoạt hàng ngày.
-- Có thể xem tổng số tiền phải trả trong tháng.
-- Có thể xem số tiền còn lại sau khi trừ các khoản phải trả cố định và các khoản chi sinh hoạt hàng ngày.
+## Schema
+- `incomes` — name, amount
+- `fixed_expenses` — name, category, estimate_amount, actual_amount, due_day, is_paid
+- `daily_expenses` — name, amount
+
+## Features
+| Feature | Status |
+|---------|--------|
+| UI: tabs, summary, modals | Done |
+| CRUD incomes | Done |
+| CRUD daily expenses | Done |
+| CRUD fixed expenses | Done |
+| Persist to Supabase | Done |
+| Seed default monthly data | Done (`npm run init-db`) |
+| Deploy Vercel + `DATABASE_URL` env | Done — https://myfinance-tau-peach.vercel.app |
+| Month selector / history | Later |
+
+## Commands
+```bash
+npm run init-db   # create tables + seed
+npm run dev       # http://localhost:3000
+```
+
+## Deploy (Vercel)
+1. Set `DATABASE_URL` in Vercel project env (Session pooler URI from `.env`).
+2. Deploy repo; static UI + `/api/*` routes.
+3. Open site and verify CRUD persists after refresh.
+
+## Connection
+Use Session pooler:
+`postgresql://postgres.<ref>:<password>@aws-0-ap-northeast-2.pooler.supabase.com:5432/postgres`
+Encode `@` in password as `%40`.

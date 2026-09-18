@@ -1,0 +1,27 @@
+{
+  "name": "myfinance",
+  "version": "1.0.0",
+  "description": "Family budget tracker – Vercel + Supabase Postgres",
+  "main": "server.js",
+  "scripts": {
+    "dev": "node server.js",
+    "init-db": "node init-db.js",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/qhieu19/myfinance.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/qhieu19/myfinance/issues"
+  },
+  "homepage": "https://github.com/qhieu19/myfinance#readme",
+  "dependencies": {
+    "dotenv": "^18.0.0",
+    "pg": "^8.23.0"
+  }
+}

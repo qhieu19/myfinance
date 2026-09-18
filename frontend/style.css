@@ -457,11 +457,12 @@ body {
 
 .form-group { display: flex; flex-direction: column; margin-bottom: 0.85rem; }
 .form-label-text { font-size: 0.78rem; font-weight: 600; color: var(--text-sec); margin-bottom: 0.3rem; }
-.form-group input[type="text"], .form-group input[type="number"] {
+.form-group input[type="text"], .form-group input[type="number"], .form-group select {
   padding: 0.7rem 0.85rem; border: 1.5px solid #e0e0e0; border-radius: var(--radius-xs);
   font-size: 0.95rem; font-family: inherit; outline: none; transition: border-color var(--fast);
+  background: #fff;
 }
-.form-group input:focus { border-color: var(--primary-light); }
+.form-group input:focus, .form-group select:focus { border-color: var(--primary-light); }
 
 .checkbox-group {
   flex-direction: row;
@@ -507,6 +508,6 @@ body {
   .item { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.08); }
   .action-btn { background: rgba(255, 255, 255, 0.06); }
   .modal { background: #1e1e2e; }
-  .form-group input[type="text"], .form-group input[type="number"] { background: #2a2a3e; border-color: #3a3a50; color: #eaeaea; }
+  .form-group input[type="text"], .form-group input[type="number"], .form-group select { background: #2a2a3e; border-color: #3a3a50; color: #eaeaea; }
   .btn-cancel { background: #2a2a3e; color: #a0a0b0; }
 }

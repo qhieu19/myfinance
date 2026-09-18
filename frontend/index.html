@@ -22,6 +22,7 @@
     <header class="header">
       <h1>Quản Lý Chi Tiêu</h1>
       <p class="header-sub">Tháng 9, 2026</p>
+      <p class="header-sub" id="load-status" style="opacity:0.7;font-size:0.85rem;"></p>
     </header>
 
     <!-- Balance Hero -->
@@ -61,173 +62,15 @@
 
     <!-- ============ FIXED TAB CONTENT ============ -->
     <div class="tab-content active" id="content-fixed">
-      
-      <!-- Nhóm Mua nhà -->
-      <div class="list-group">
-        <h3 class="list-group-title">🏠 Tiền Mua Nhà</h3>
-        <ul class="item-list">
-          <li class="item" data-id="house-goc" data-estimate="12000000" data-actual="12000000" data-due="5" data-paid="true">
-            <div class="item-icon" style="background:#e8f5e9; color:#43a047;">🏠</div>
-            <div class="item-body">
-              <span class="item-name">Tiền gốc</span>
-              <span class="item-meta">Ngày 5 hàng tháng</span>
-            </div>
-            <div class="item-right">
-              <span class="item-amount">12.000.000₫</span>
-              <span class="item-due paid">Đã trả ✓</span>
-            </div>
-            <div class="item-actions">
-              <button class="action-btn edit" onclick="editFixedItem(this)" aria-label="Sửa">✏️</button>
-            </div>
-          </li>
-          <li class="item" data-id="house-lai" data-estimate="8500000" data-actual="8500000" data-due="5" data-paid="true">
-            <div class="item-icon" style="background:#fff3e0; color:#ef6c00;">🏠</div>
-            <div class="item-body">
-              <span class="item-name">Tiền lãi</span>
-              <span class="item-meta">Ngày 5 hàng tháng</span>
-            </div>
-            <div class="item-right">
-              <span class="item-amount">8.500.000₫</span>
-              <span class="item-due paid">Đã trả ✓</span>
-            </div>
-            <div class="item-actions">
-              <button class="action-btn edit" onclick="editFixedItem(this)" aria-label="Sửa">✏️</button>
-            </div>
-          </li>
-        </ul>
+      <div class="empty-state">
+        <span class="empty-icon">⏳</span>
+        <p>Đang tải...</p>
       </div>
-
-      <!-- Nhóm Sinh hoạt -->
-      <div class="list-group">
-        <h3 class="list-group-title">🏡 Tiền Sinh Hoạt</h3>
-        <ul class="item-list">
-          <li class="item" data-id="living-dien" data-estimate="1500000" data-actual="" data-due="" data-paid="false">
-            <div class="item-icon" style="background:#fff3e0; color:#ef6c00;">⚡</div>
-            <div class="item-body">
-              <span class="item-name">Tiền Điện</span>
-              <span class="item-meta">Phát sinh</span>
-            </div>
-            <div class="item-right">
-              <span class="item-amount">1.500.000₫</span>
-              <span class="item-due">Chưa trả</span>
-            </div>
-            <div class="item-actions">
-              <button class="action-btn edit" onclick="editFixedItem(this)" aria-label="Sửa">✏️</button>
-            </div>
-          </li>
-          <li class="item" data-id="living-nuoc" data-estimate="200000" data-actual="" data-due="" data-paid="false">
-            <div class="item-icon" style="background:#e3f2fd; color:#1e88e5;">💧</div>
-            <div class="item-body">
-              <span class="item-name">Tiền Nước</span>
-              <span class="item-meta">Phát sinh</span>
-            </div>
-            <div class="item-right">
-              <span class="item-amount">200.000₫</span>
-              <span class="item-due">Chưa trả</span>
-            </div>
-            <div class="item-actions">
-              <button class="action-btn edit" onclick="editFixedItem(this)" aria-label="Sửa">✏️</button>
-            </div>
-          </li>
-          <li class="item" data-id="living-mang" data-estimate="300000" data-actual="300000" data-due="" data-paid="true">
-            <div class="item-icon" style="background:#ede7f6; color:#5e35b1;">📡</div>
-            <div class="item-body">
-              <span class="item-name">Tiền Mạng</span>
-              <span class="item-meta">Phát sinh</span>
-            </div>
-            <div class="item-right">
-              <span class="item-amount">300.000₫</span>
-              <span class="item-due paid">Đã trả ✓</span>
-            </div>
-            <div class="item-actions">
-              <button class="action-btn edit" onclick="editFixedItem(this)" aria-label="Sửa">✏️</button>
-            </div>
-          </li>
-          <li class="item" data-id="living-dichvu" data-estimate="800000" data-actual="" data-due="" data-paid="false">
-            <div class="item-icon" style="background:#e0f2f1; color:#00897b;">🏢</div>
-            <div class="item-body">
-              <span class="item-name">Phí dịch vụ</span>
-              <span class="item-meta">Phát sinh</span>
-            </div>
-            <div class="item-right">
-              <span class="item-amount">800.000₫</span>
-              <span class="item-due">Chưa trả</span>
-            </div>
-            <div class="item-actions">
-              <button class="action-btn edit" onclick="editFixedItem(this)" aria-label="Sửa">✏️</button>
-            </div>
-          </li>
-          <li class="item" data-id="living-guixe" data-estimate="500000" data-actual="500000" data-due="" data-paid="true">
-            <div class="item-icon" style="background:#fce4ec; color:#d81b60;">🏍️</div>
-            <div class="item-body">
-              <span class="item-name">Phí gửi xe</span>
-              <span class="item-meta">Phát sinh</span>
-            </div>
-            <div class="item-right">
-              <span class="item-amount">500.000₫</span>
-              <span class="item-due paid">Đã trả ✓</span>
-            </div>
-            <div class="item-actions">
-              <button class="action-btn edit" onclick="editFixedItem(this)" aria-label="Sửa">✏️</button>
-            </div>
-          </li>
-        </ul>
-      </div>
-
-      <!-- Nhóm Thẻ tín dụng -->
-      <div class="list-group">
-        <h3 class="list-group-title">💳 Thẻ Tín Dụng</h3>
-        <ul class="item-list">
-          <li class="item" data-id="credit-hsbc" data-estimate="5000000" data-actual="" data-due="15" data-paid="false">
-            <div class="item-icon" style="background:#fce4ec; color:#e53935;">💳</div>
-            <div class="item-body">
-              <span class="item-name">Thẻ tín dụng HSBC</span>
-              <span class="item-meta">Ngày 15 hàng tháng</span>
-            </div>
-            <div class="item-right">
-              <span class="item-amount">5.000.000₫</span>
-              <span class="item-due warning">Còn 3 ngày</span>
-            </div>
-            <div class="item-actions">
-              <button class="action-btn edit" onclick="editFixedItem(this)" aria-label="Sửa">✏️</button>
-            </div>
-          </li>
-          <li class="item" data-id="credit-vcb" data-estimate="3000000" data-actual="" data-due="20" data-paid="false">
-            <div class="item-icon" style="background:#e8f5e9; color:#43a047;">💳</div>
-            <div class="item-body">
-              <span class="item-name">Thẻ tín dụng VCB</span>
-              <span class="item-meta">Ngày 20 hàng tháng</span>
-            </div>
-            <div class="item-right">
-              <span class="item-amount">3.000.000₫</span>
-              <span class="item-due">Chưa trả</span>
-            </div>
-            <div class="item-actions">
-              <button class="action-btn edit" onclick="editFixedItem(this)" aria-label="Sửa">✏️</button>
-            </div>
-          </li>
-        </ul>
-      </div>
-
     </div>
 
     <!-- ============ DAILY TAB CONTENT ============ -->
     <div class="tab-content" id="content-daily">
-      <ul class="item-list" id="daily-list">
-        <li class="item" data-id="d1">
-          <div class="item-body">
-            <span class="item-name">Đi chợ</span>
-            <span class="item-meta">Hôm nay, 08:30</span>
-          </div>
-          <div class="item-right">
-            <span class="item-amount">250.000₫</span>
-          </div>
-          <div class="item-actions">
-            <button class="action-btn edit" onclick="editItem(this)" aria-label="Sửa">✏️</button>
-            <button class="action-btn delete" onclick="deleteItem(this)" aria-label="Xóa">🗑️</button>
-          </div>
-        </li>
-      </ul>
+      <ul class="item-list" id="daily-list"></ul>
       <div class="empty-state" id="empty-state" style="display:none;">
         <span class="empty-icon">📭</span>
         <p>Chưa có khoản chi nào</p>
@@ -238,52 +81,12 @@
     <div class="tab-content" id="content-income">
       <div class="list-group">
         <h3 class="list-group-title">💰 Nguồn Thu Nhập</h3>
-        <ul class="item-list" id="income-list">
-          <li class="item" data-id="income-husband" data-amount="35000000">
-            <div class="item-body">
-              <span class="item-name">Lương chồng</span>
-              <span class="item-meta">Cố định hàng tháng</span>
-            </div>
-            <div class="item-right">
-              <span class="item-amount" style="color:var(--green);">35.000.000₫</span>
-            </div>
-            <div class="item-actions">
-              <button class="action-btn edit" onclick="editIncomeItem(this)" aria-label="Sửa">✏️</button>
-              <button class="action-btn delete" onclick="deleteItem(this)" aria-label="Xóa">🗑️</button>
-            </div>
-          </li>
-          <li class="item" data-id="income-wife" data-amount="20000000">
-            <div class="item-body">
-              <span class="item-name">Lương vợ</span>
-              <span class="item-meta">Cố định hàng tháng</span>
-            </div>
-            <div class="item-right">
-              <span class="item-amount" style="color:var(--green);">20.000.000₫</span>
-            </div>
-            <div class="item-actions">
-              <button class="action-btn edit" onclick="editIncomeItem(this)" aria-label="Sửa">✏️</button>
-              <button class="action-btn delete" onclick="deleteItem(this)" aria-label="Xóa">🗑️</button>
-            </div>
-          </li>
-          <li class="item" data-id="income-other" data-amount="5000000">
-            <div class="item-body">
-              <span class="item-name">Thu nhập khác</span>
-              <span class="item-meta">Kinh doanh, thưởng...</span>
-            </div>
-            <div class="item-right">
-              <span class="item-amount" style="color:var(--green);">5.000.000₫</span>
-            </div>
-            <div class="item-actions">
-              <button class="action-btn edit" onclick="editIncomeItem(this)" aria-label="Sửa">✏️</button>
-              <button class="action-btn delete" onclick="deleteItem(this)" aria-label="Xóa">🗑️</button>
-            </div>
-          </li>
-        </ul>
+        <ul class="item-list" id="income-list"></ul>
       </div>
     </div>
 
     <!-- FAB -->
-    <button class="fab" id="fab" onclick="openModal()" aria-label="Thêm khoản chi" style="display: none;">
+    <button class="fab" id="fab" onclick="openModal()" aria-label="Thêm khoản">
       <span class="fab-icon">＋</span>
     </button>
 
@@ -293,17 +96,30 @@
   <!-- Modal Overlay -->
   <div class="modal-overlay" id="modal-overlay" onclick="closeModal()"></div>
 
-  <!-- Add Daily Modal -->
+  <!-- Add Modal (daily / income / fixed) -->
   <div class="modal" id="modal">
     <div class="modal-handle"></div>
     <h3 id="modal-title">Thêm Chi Phí Hàng Ngày</h3>
     <div class="modal-form">
       <label class="form-group">
-        <span class="form-label-text">Tên khoản chi</span>
+        <span class="form-label-text">Tên khoản</span>
         <input type="text" id="input-name" placeholder="VD: Cà phê, Ăn trưa..." />
       </label>
+      <label class="form-group" id="group-category" style="display:none;">
+        <span class="form-label-text">Nhóm</span>
+        <select id="input-category">
+          <option value="Tiền Mua Nhà">Tiền Mua Nhà</option>
+          <option value="Tiền Sinh Hoạt">Tiền Sinh Hoạt</option>
+          <option value="Thẻ Tín Dụng">Thẻ Tín Dụng</option>
+          <option value="Khác">Khác</option>
+        </select>
+      </label>
+      <label class="form-group" id="group-due" style="display:none;">
+        <span class="form-label-text">Ngày trả (hàng tháng)</span>
+        <input type="number" id="input-due" placeholder="VD: 5" inputmode="numeric" min="1" max="31" />
+      </label>
       <label class="form-group">
-        <span class="form-label-text">Số tiền (₫)</span>
+        <span class="form-label-text" id="label-amount">Số tiền (₫)</span>
         <input type="number" id="input-amount" placeholder="VD: 50000" inputmode="numeric" />
       </label>
     </div>
@@ -358,6 +174,7 @@
       </label>
     </div>
     <div class="modal-actions">
+      <button class="btn btn-cancel" onclick="deleteFixedItem()" style="color:#c62828;">Xóa</button>
       <button class="btn btn-cancel" onclick="closeEditFixedModal()">Hủy</button>
       <button class="btn btn-save" onclick="saveEditFixed()">Cập Nhật</button>
     </div>
