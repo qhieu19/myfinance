@@ -7,14 +7,16 @@ const { URL } = require('url');
 const incomes = require('./api/incomes');
 const fixedExpenses = require('./api/fixed-expenses');
 const dailyExpenses = require('./api/daily-expenses');
+const month = require('./api/month');
 
 const PORT = process.env.PORT || 3000;
-const FRONTEND_DIR = path.join(__dirname, 'frontend');
+const PUBLIC_DIR = path.join(__dirname, 'public');
 
 const apiRoutes = {
   '/api/incomes': incomes,
   '/api/fixed-expenses': fixedExpenses,
   '/api/daily-expenses': dailyExpenses,
+  '/api/month': month,
 };
 
 const mime = {
@@ -30,9 +32,9 @@ const mime = {
 function serveStatic(req, res, pathname) {
   let filePath = pathname === '/' ? '/index.html' : pathname;
   filePath = path.normalize(filePath).replace(/^(\.\.[/\\])+/, '');
-  const abs = path.join(FRONTEND_DIR, filePath);
+  const abs = path.join(PUBLIC_DIR, filePath);
 
-  if (!abs.startsWith(FRONTEND_DIR)) {
+  if (!abs.startsWith(PUBLIC_DIR)) {
     res.writeHead(403);
     return res.end('Forbidden');
   }

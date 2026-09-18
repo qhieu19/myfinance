@@ -89,6 +89,64 @@ body {
   margin-top: 0.1rem;
 }
 
+.month-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 0.35rem;
+}
+
+.month-nav .header-sub {
+  margin: 0;
+  min-width: 7.5rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-sec);
+}
+
+.month-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(108, 99, 255, 0.12);
+  color: var(--primary);
+  font-size: 1.25rem;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.month-btn:active { transform: scale(0.94); }
+
+.btn-export {
+  margin-top: 0.55rem;
+  padding: 0.45rem 0.9rem;
+  border: 1.5px solid rgba(108, 99, 255, 0.25);
+  border-radius: 99px;
+  background: #fff;
+  color: var(--primary);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--fast) var(--ease);
+}
+
+.btn-export.remind {
+  border-color: transparent;
+  background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(238, 90, 36, 0.4);
+  animation: exportPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes exportPulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 4px 16px rgba(238, 90, 36, 0.4); }
+  50% { transform: scale(1.04); box-shadow: 0 6px 22px rgba(238, 90, 36, 0.55); }
+}
+
 /* ===== BALANCE HERO CARD ===== */
 .balance-card {
   margin: 0.8rem 1rem 0;
@@ -328,15 +386,17 @@ body {
   display: block;
   font-size: 0.88rem;
   font-weight: 700;
-  color: var(--accent);
+  color: #e53935;
 }
 
-.item[data-paid="false"] .item-amount {
-  color: var(--accent);
-}
-
+.item-amount.paid,
 .item[data-paid="true"] .item-amount {
   color: var(--green);
+}
+
+.item-amount.unpaid,
+.item[data-paid="false"] .item-amount {
+  color: #e53935;
 }
 
 .item-due {

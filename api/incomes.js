@@ -1,55 +1,35 @@
 const { getPool } = require('../lib/db');
+const { send, readBody, parseYearMonth } = require('../lib/http');
 
-function send(res, status, body) {
-  res.statusCode = status;
-  res.setHeader('Content-Type', 'application/json');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  res.end(JSON.stringify(body));
-}
-
-function readBody(req) {
-  return new Promise((resolve, reject) => {
-    const chunks = [];
-    req.on('data', (c) => chunks.push(c));
-    req.on('end', () => {
-      try {
-        const raw = Buffer.concat(chunks).toString('utf8');
-        resolve(raw ? JSON.parse(raw) : {});
-      } catch (err) {
-        reject(err);
-      }
-    });
-    req.on('error', reject);
-  });
-}
+const COLS = 'id, name, amount, year, month, created_at';
 
 module.exports = async function handler(req, res) {
-  if (req.method === 'OPTIONS') {
-    return send(res, 204, {});
-  }
+  if (req.method === 'OPTIONS') return send(res, 204, {});
 
   try {
     const pool = getPool();
 
     if (req.method === 'GET') {
+      const ym = parseYearMonth(req);
+      if (!ym) return send(res, 400, { error: 'year and month required' });
       const { rows } = await pool.query(
-        'SELECT id, name, amount, created_at FROM incomes ORDER BY created_at ASC'
+        `SELECT ${COLS} FROM incomes WHERE year = $1 AND month = $2 ORDER BY created_at ASC`,
+        [ym.year, ym.month]
       );
       return send(res, 200, rows);
     }
 
     if (req.method === 'POST') {
       const body = await readBody(req);
+      const ym = parseYearMonth(req, body);
       const name = (body.name || '').trim();
       const amount = parseInt(body.amount, 10);
-      if (!name || !Number.isFinite(amount) || amount <= 0) {
-        return send(res, 400, { error: 'Invalid name or amount' });
+      if (!ym || !name || !Number.isFinite(amount) || amount <= 0) {
+        return send(res, 400, { error: 'Invalid name, amount, year, or month' });
       }
       const { rows } = await pool.query(
-        'INSERT INTO incomes (name, amount) VALUES ($1, $2) RETURNING id, name, amount, created_at',
-        [name, amount]
+        `INSERT INTO incomes (name, amount, year, month) VALUES ($1, $2, $3, $4) RETURNING ${COLS}`,
+        [name, amount, ym.year, ym.month]
       );
       return send(res, 201, rows[0]);
     }
@@ -63,7 +43,7 @@ module.exports = async function handler(req, res) {
         return send(res, 400, { error: 'Invalid id, name, or amount' });
       }
       const { rows } = await pool.query(
-        'UPDATE incomes SET name = $1, amount = $2 WHERE id = $3 RETURNING id, name, amount, created_at',
+        `UPDATE incomes SET name = $1, amount = $2 WHERE id = $3 RETURNING ${COLS}`,
         [name, amount, id]
       );
       if (!rows[0]) return send(res, 404, { error: 'Not found' });

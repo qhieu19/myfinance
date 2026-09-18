@@ -1,0 +1,58 @@
+---
+description: MyFinance codebase map for every agent session
+alwaysApply: true
+---
+
+# MyFinance – codebase session guide
+
+Family budget tracker. **Live:** https://myfinance-tau-peach.vercel.app  
+Stack: vanilla UI + Vercel serverless API + Supabase Postgres. Product brief: `idea.md`.
+
+## Layout
+
+| Path | Role |
+|------|------|
+| `public/index.html` | Shell: header, month nav, CSV button, balance card, tabs, modals |
+| `public/script.js` | All UI logic: load month, CRUD, colors, CSV export |
+| `public/style.css` | Mobile-first styles; paid green / unpaid red; CSV remind pulse |
+| `api/incomes.js` | CRUD incomes (scoped by year+month) |
+| `api/fixed-expenses.js` | CRUD fixed bills |
+| `api/daily-expenses.js` | CRUD daily spend |
+| `api/month.js` | `POST` — copy incomes+fixed from prior month into empty month |
+| `lib/db.js` | `pg` Pool via `DATABASE_URL` + SSL |
+| `lib/http.js` | `send`, `readBody`, `parseYearMonth` |
+| `server.js` | Local: serves `public/` + mounts `/api/*` |
+| `scripts/init-db.js` | Create/migrate tables (`year`,`month`), indexes, seed |
+| `vercel.json` | Rewrites `/` → `public/index.html` (and css/js) |
+
+## Data model
+
+Tables: `incomes`, `fixed_expenses`, `daily_expenses`.  
+Every row has **`year`** + **`month`**. UI always queries with current `viewYear` / `viewMonth`.
+
+Fixed payment UX: `is_paid` true → amount **green**; false → **red**.
+
+## Request flow
+
+1. Browser opens site → `loadAll()`  
+2. `POST /api/month` with `{ year, month }` (bootstrap if empty)  
+3. Parallel `GET` incomes / fixed / daily with `?year=&month=`  
+4. Mutations send JSON; creates include year+month  
+
+Local: `npm run dev` → `server.js`. Prod: Vercel functions under `api/` + static from rewrites. Env: `DATABASE_URL` (Session pooler).
+
+## Conventions
+
+- Do not commit `.env` / `.env.local`  
+- Prefer Session pooler over `db.*.supabase.co`  
+- After schema changes, run `npm run init-db`  
+- Keep handlers CommonJS (`module.exports`) to match `package.json` `"type": "commonjs"`  
+- Avoid large refactors; match existing Vietnamese UI copy  
+
+## Commands
+
+```bash
+npm run init-db
+npm run dev
+npx vercel --prod
+```

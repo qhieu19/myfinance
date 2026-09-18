@@ -1,46 +1,71 @@
-# MyFinance – Plan
+# MyFinance – Plan & Features
 
 ## Problem
-Monthly income ~60M VND. Need to track fixed bills (due on different days) and daily spending, then always see remaining balance.
+Monthly household income ~60M VND. Track fixed bills (different due days) and daily spending, always see remaining balance, keep history by month.
 
 ## Solution
-Simple mobile-friendly web app: incomes + fixed expenses + daily expenses, with live remaining balance.
+Mobile-friendly web app with incomes, fixed expenses, and daily expenses — data lives in Supabase Postgres, UI on Vercel.
+
+**Live:** https://myfinance-tau-peach.vercel.app
 
 ## Stack
-- **Frontend**: vanilla HTML/CSS/JS (`frontend/`)
-- **API**: Node routes (`api/`) — local via `server.js`, deploy on Vercel Hobby
-- **DB**: Supabase Postgres (Session pooler)
-- Secrets in `.env` only (`DATABASE_URL`). Never commit `.env`.
+| Layer | Path / tech |
+|-------|-------------|
+| UI | `public/` — vanilla HTML / CSS / JS |
+| API | `api/` — Vercel serverless (also served by `server.js` locally) |
+| Shared | `lib/db.js`, `lib/http.js` |
+| DB setup | `scripts/init-db.js` |
+| DB | Supabase Postgres (Session pooler) |
+| Secrets | `.env` → `DATABASE_URL` (never commit) |
 
-## Schema
-- `incomes` — name, amount
-- `fixed_expenses` — name, category, estimate_amount, actual_amount, due_day, is_paid
-- `daily_expenses` — name, amount
+## Folder layout
+```
+myfinance/
+├── public/           # Static UI (index, script, style)
+├── api/              # HTTP handlers → /api/*
+├── lib/              # DB pool + HTTP helpers
+├── scripts/init-db.js
+├── server.js         # Local: static + API
+├── vercel.json
+├── idea.md
+└── .cursor/rules/    # Agent session context
+```
 
-## Features
-| Feature | Status |
+## Database schema
+All transactional tables include **`year`** + **`month`** for monthly history.
+
+- **incomes** — name, amount, year, month
+- **fixed_expenses** — name, category, estimate_amount, actual_amount, due_day, is_paid, year, month
+- **daily_expenses** — name, amount, year, month
+
+## Features (current)
+| Feature | Detail |
 |---------|--------|
-| UI: tabs, summary, modals | Done |
-| CRUD incomes | Done |
-| CRUD daily expenses | Done |
-| CRUD fixed expenses | Done |
-| Persist to Supabase | Done |
-| Seed default monthly data | Done (`npm run init-db`) |
-| Deploy Vercel + `DATABASE_URL` env | Done — https://myfinance-tau-peach.vercel.app |
-| Month selector / history | Later |
+| Summary card | Income, spent, remaining, % progress, fixed vs daily chips |
+| Tabs | Cố định / Hàng ngày / Thu nhập |
+| CRUD | Add / edit / delete for all three types |
+| Paid colors | Fixed: paid amount **green**, unpaid **red** |
+| Month navigator | ‹ › switches month; data filtered by year+month |
+| Copy prior month | Empty month auto-copies incomes + fixed (reset unpaid) via `POST /api/month` |
+| Export CSV | Button downloads current month; **highlights/pulses days 25–30** |
+| Deploy | Vercel Hobby + Supabase free |
+
+## API
+| Method | Path | Notes |
+|--------|------|--------|
+| GET/POST/PUT/DELETE | `/api/incomes` | GET/POST need `?year=&month=` / body |
+| GET/POST/PUT/DELETE | `/api/fixed-expenses` | same |
+| GET/POST/PUT/DELETE | `/api/daily-expenses` | same |
+| POST | `/api/month` | `{ year, month }` — bootstrap copy from previous month |
 
 ## Commands
 ```bash
-npm run init-db   # create tables + seed
+npm run init-db   # migrate/create tables + seed if empty
 npm run dev       # http://localhost:3000
+npx vercel --prod # deploy
 ```
 
-## Deploy (Vercel)
-1. Set `DATABASE_URL` in Vercel project env (Session pooler URI from `.env`).
-2. Deploy repo; static UI + `/api/*` routes.
-3. Open site and verify CRUD persists after refresh.
-
 ## Connection
-Use Session pooler:
-`postgresql://postgres.<ref>:<password>@aws-0-ap-northeast-2.pooler.supabase.com:5432/postgres`
-Encode `@` in password as `%40`.
+Prefer Session pooler URI in `.env` / Vercel env:
+`postgresql://postgres.<ref>:<password>@aws-0-ap-northeast-2.pooler.supabase.com:5432/postgres`  
+URL-encode special chars in password (`@` → `%40`).

@@ -21,8 +21,15 @@
     <!-- Header -->
     <header class="header">
       <h1>Quản Lý Chi Tiêu</h1>
-      <p class="header-sub">Tháng 9, 2026</p>
+      <div class="month-nav">
+        <button type="button" class="month-btn" id="btn-prev-month" onclick="shiftMonth(-1)" aria-label="Tháng trước">‹</button>
+        <p class="header-sub" id="month-label">Tháng 9, 2026</p>
+        <button type="button" class="month-btn" id="btn-next-month" onclick="shiftMonth(1)" aria-label="Tháng sau">›</button>
+      </div>
       <p class="header-sub" id="load-status" style="opacity:0.7;font-size:0.85rem;"></p>
+      <button type="button" class="btn-export" id="btn-export" onclick="exportCsv()">
+        ⬇️ Xuất CSV
+      </button>
     </header>
 
     <!-- Balance Hero -->

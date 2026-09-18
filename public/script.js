@@ -6,6 +6,7 @@ const API = {
   incomes: '/api/incomes',
   fixed: '/api/fixed-expenses',
   daily: '/api/daily-expenses',
+  month: '/api/month',
 };
 
 let currentTab = 'fixed';
@@ -13,6 +14,10 @@ let editingItem = null;
 let fixedExpenses = [];
 let dailyExpenses = [];
 let incomes = [];
+
+const today = new Date();
+let viewYear = today.getFullYear();
+let viewMonth = today.getMonth() + 1;
 
 const CATEGORY_META = {
   'Tiền Mua Nhà': { icon: '🏠', color: '#e8f5e9', fg: '#43a047' },
@@ -32,6 +37,14 @@ const ITEM_ICONS = {
   'Thẻ tín dụng VCB': { icon: '💳', bg: '#e8f5e9', fg: '#43a047' },
 };
 
+function ymQuery() {
+  return `year=${viewYear}&month=${viewMonth}`;
+}
+
+function ymBody(extra = {}) {
+  return { ...extra, year: viewYear, month: viewMonth };
+}
+
 function fmt(n) {
   return Number(n || 0).toLocaleString('vi-VN') + '₫';
 }
@@ -50,13 +63,19 @@ function formatMetaDate(iso) {
   if (!iso) return '';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  const today = new Date();
+  const now = new Date();
   const sameDay =
-    d.getDate() === today.getDate() &&
-    d.getMonth() === today.getMonth() &&
-    d.getFullYear() === today.getFullYear();
+    d.getDate() === now.getDate() &&
+    d.getMonth() === now.getMonth() &&
+    d.getFullYear() === now.getFullYear();
   const time = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
   return sameDay ? `Hôm nay, ${time}` : d.toLocaleDateString('vi-VN') + ', ' + time;
+}
+
+function csvEscape(value) {
+  const s = String(value ?? '');
+  if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
 }
 
 async function api(url, options = {}) {
@@ -67,6 +86,35 @@ async function api(url, options = {}) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || 'Request failed');
   return data;
+}
+
+function updateMonthLabel() {
+  document.getElementById('month-label').textContent =
+    'Tháng ' + viewMonth + ', ' + viewYear;
+}
+
+function updateExportReminder() {
+  const btn = document.getElementById('btn-export');
+  if (!btn) return;
+  const day = new Date().getDate();
+  const remind = day >= 25 && day <= 30;
+  btn.classList.toggle('remind', remind);
+  btn.title = remind
+    ? 'Cuối tháng rồi — hãy xuất CSV để lưu sổ!'
+    : 'Xuất dữ liệu tháng đang xem ra CSV';
+}
+
+function shiftMonth(delta) {
+  viewMonth += delta;
+  if (viewMonth < 1) {
+    viewMonth = 12;
+    viewYear -= 1;
+  } else if (viewMonth > 12) {
+    viewMonth = 1;
+    viewYear += 1;
+  }
+  updateMonthLabel();
+  loadAll();
 }
 
 function switchTab(tab) {
@@ -128,11 +176,15 @@ function updateSummary() {
 
 function dueLabel(row) {
   if (row.is_paid) return { text: 'Đã trả ✓', className: 'item-due paid' };
-  if (row.due_day) {
-    const today = new Date().getDate();
+
+  const isCurrentView =
+    viewYear === today.getFullYear() && viewMonth === today.getMonth() + 1;
+
+  if (isCurrentView && row.due_day) {
     const dueNum = Number(row.due_day);
-    if (dueNum >= today) {
-      const diff = dueNum - today;
+    const day = today.getDate();
+    if (dueNum >= day) {
+      const diff = dueNum - day;
       return {
         text: `Còn ${diff} ngày`,
         className: diff <= 3 ? 'item-due warning' : 'item-due',
@@ -159,7 +211,7 @@ function renderFixed() {
 
   if (cats.length === 0) {
     container.innerHTML =
-      '<div class="empty-state"><span class="empty-icon">📭</span><p>Chưa có khoản cố định</p></div>';
+      '<div class="empty-state"><span class="empty-icon">📭</span><p>Chưa có khoản cố định tháng này</p></div>';
     return;
   }
 
@@ -172,6 +224,7 @@ function renderFixed() {
           const estimate = Number(row.estimate_amount) || 0;
           const amt = actual > 0 ? actual : estimate;
           const due = dueLabel(row);
+          const paidClass = row.is_paid ? 'paid' : 'unpaid';
           const icon = ITEM_ICONS[row.name] || {
             icon: meta.icon || '📌',
             bg: meta.color || '#eceff1',
@@ -179,14 +232,14 @@ function renderFixed() {
           };
           const metaText = row.due_day ? `Ngày ${row.due_day} hàng tháng` : 'Phát sinh';
           return `
-            <li class="item" data-id="${row.id}">
+            <li class="item" data-id="${row.id}" data-paid="${row.is_paid ? 'true' : 'false'}">
               <div class="item-icon" style="background:${icon.bg}; color:${icon.fg};">${icon.icon}</div>
               <div class="item-body">
                 <span class="item-name">${escHtml(row.name)}</span>
                 <span class="item-meta">${escHtml(metaText)}</span>
               </div>
               <div class="item-right">
-                <span class="item-amount">${fmt(amt)}</span>
+                <span class="item-amount ${paidClass}">${fmt(amt)}</span>
                 <span class="${due.className}">${due.text}</span>
               </div>
               <div class="item-actions">
@@ -217,7 +270,7 @@ function renderDaily() {
           <span class="item-meta">${escHtml(formatMetaDate(row.created_at) || 'Chi tiêu')}</span>
         </div>
         <div class="item-right">
-          <span class="item-amount">${fmt(row.amount)}</span>
+          <span class="item-amount unpaid">${fmt(row.amount)}</span>
         </div>
         <div class="item-actions">
           <button class="action-btn edit" onclick="editItem(this)" aria-label="Sửa">✏️</button>
@@ -240,7 +293,7 @@ function renderIncomes() {
           <span class="item-meta">Nguồn thu</span>
         </div>
         <div class="item-right">
-          <span class="item-amount" style="color:var(--green);">${fmt(row.amount)}</span>
+          <span class="item-amount paid">${fmt(row.amount)}</span>
         </div>
         <div class="item-actions">
           <button class="action-btn edit" onclick="editIncomeItem(this)" aria-label="Sửa">✏️</button>
@@ -296,7 +349,7 @@ async function saveExpense() {
     if (currentTab === 'income') {
       const row = await api(API.incomes, {
         method: 'POST',
-        body: JSON.stringify({ name, amount }),
+        body: JSON.stringify(ymBody({ name, amount })),
       });
       incomes.push(row);
       renderIncomes();
@@ -305,21 +358,23 @@ async function saveExpense() {
       const dueRaw = document.getElementById('input-due').value.trim();
       const row = await api(API.fixed, {
         method: 'POST',
-        body: JSON.stringify({
-          name,
-          category,
-          estimate_amount: amount,
-          actual_amount: 0,
-          due_day: dueRaw,
-          is_paid: false,
-        }),
+        body: JSON.stringify(
+          ymBody({
+            name,
+            category,
+            estimate_amount: amount,
+            actual_amount: 0,
+            due_day: dueRaw,
+            is_paid: false,
+          })
+        ),
       });
       fixedExpenses.push(row);
       renderFixed();
     } else {
       const row = await api(API.daily, {
         method: 'POST',
-        body: JSON.stringify({ name, amount }),
+        body: JSON.stringify(ymBody({ name, amount })),
       });
       dailyExpenses.unshift(row);
       renderDaily();
@@ -528,15 +583,84 @@ async function deleteFixedItem() {
   }
 }
 
+function exportCsv() {
+  const lines = [];
+  lines.push(['Loại', 'Nhóm', 'Tên', 'Số tiền', 'Ngày trả', 'Đã trả', 'Tháng', 'Năm'].join(','));
+
+  incomes.forEach((row) => {
+    lines.push(
+      [
+        'Thu nhập',
+        '',
+        csvEscape(row.name),
+        row.amount,
+        '',
+        '',
+        viewMonth,
+        viewYear,
+      ].join(',')
+    );
+  });
+
+  fixedExpenses.forEach((row) => {
+    const actual = Number(row.actual_amount) || 0;
+    const estimate = Number(row.estimate_amount) || 0;
+    const amt = actual > 0 ? actual : estimate;
+    lines.push(
+      [
+        'Cố định',
+        csvEscape(row.category),
+        csvEscape(row.name),
+        amt,
+        row.due_day ?? '',
+        row.is_paid ? 'Có' : 'Không',
+        viewMonth,
+        viewYear,
+      ].join(',')
+    );
+  });
+
+  dailyExpenses.forEach((row) => {
+    lines.push(
+      [
+        'Hàng ngày',
+        '',
+        csvEscape(row.name),
+        row.amount,
+        '',
+        '',
+        viewMonth,
+        viewYear,
+      ].join(',')
+    );
+  });
+
+  const blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `chi-tieu-${viewYear}-${String(viewMonth).padStart(2, '0')}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 async function loadAll() {
   const status = document.getElementById('load-status');
   if (status) status.textContent = 'Đang tải dữ liệu...';
+  updateMonthLabel();
+  updateExportReminder();
 
   try {
+    await api(API.month, {
+      method: 'POST',
+      body: JSON.stringify({ year: viewYear, month: viewMonth }),
+    });
+
+    const q = ymQuery();
     const [fixed, daily, incomeRows] = await Promise.all([
-      api(API.fixed),
-      api(API.daily),
-      api(API.incomes),
+      api(`${API.fixed}?${q}`),
+      api(`${API.daily}?${q}`),
+      api(`${API.incomes}?${q}`),
     ]);
     fixedExpenses = fixed;
     dailyExpenses = daily;
@@ -548,12 +672,10 @@ async function loadAll() {
     if (status) status.textContent = '';
   } catch (err) {
     console.error(err);
-    if (status) status.textContent = 'Không kết nối được database. Chạy API local hoặc deploy Vercel.';
+    if (status) status.textContent = 'Không kết nối được database.';
   }
 }
 
-const now = new Date();
-document.querySelector('.header-sub').textContent =
-  'Tháng ' + (now.getMonth() + 1) + ', ' + now.getFullYear();
-
+updateMonthLabel();
+updateExportReminder();
 loadAll();
