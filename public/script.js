@@ -6,6 +6,7 @@ const API = {
   incomes: '/api/incomes',
   fixed: '/api/fixed-expenses',
   daily: '/api/daily-expenses',
+  cc: '/api/credit-card-spendings',
   month: '/api/month',
 };
 
@@ -14,6 +15,7 @@ let editingItem = null;
 let fixedExpenses = [];
 let dailyExpenses = [];
 let incomes = [];
+let ccSpendings = [];
 
 const today = new Date();
 let viewYear = today.getFullYear();
@@ -136,6 +138,10 @@ function checkEmpty() {
   if (currentTab === 'daily') {
     const list = document.getElementById('daily-list');
     const empty = document.getElementById('empty-state');
+    empty.style.display = list.children.length === 0 ? 'block' : 'none';
+  } else if (currentTab === 'cc') {
+    const list = document.getElementById('cc-list');
+    const empty = document.getElementById('cc-empty-state');
     empty.style.display = list.children.length === 0 ? 'block' : 'none';
   }
 }
@@ -282,6 +288,29 @@ function renderDaily() {
   checkEmpty();
 }
 
+function renderCc() {
+  const list = document.getElementById('cc-list');
+  list.innerHTML = ccSpendings
+    .map(
+      (row) => `
+      <li class="item" data-id="${row.id}">
+        <div class="item-body">
+          <span class="item-name">${escHtml(row.card_name)}</span>
+          <span class="item-meta">${escHtml(formatMetaDate(row.transaction_date) || 'Chi tiêu thẻ')}</span>
+        </div>
+        <div class="item-right">
+          <span class="item-amount" style="color: #e53935;">${fmt(row.amount)}</span>
+        </div>
+        <div class="item-actions">
+          <button class="action-btn edit" onclick="editCcItem(this)" aria-label="Sửa">✏️</button>
+          <button class="action-btn delete" onclick="deleteCcFromList(this)" aria-label="Xóa">🗑️</button>
+        </div>
+      </li>`
+    )
+    .join('');
+  checkEmpty();
+}
+
 function renderIncomes() {
   const list = document.getElementById('income-list');
   list.innerHTML = incomes
@@ -319,6 +348,7 @@ function openModal() {
     income: 'Thêm Nguồn Thu',
     fixed: 'Thêm Khoản Cố Định',
     daily: 'Thêm Chi Phí Hàng Ngày',
+    cc: 'Thêm Tiêu Thẻ Tín Dụng',
   };
   document.getElementById('modal-title').textContent = titles[currentTab] || titles.daily;
 
@@ -371,6 +401,13 @@ async function saveExpense() {
       });
       fixedExpenses.push(row);
       renderFixed();
+    } else if (currentTab === 'cc') {
+      const row = await api(API.cc, {
+        method: 'POST',
+        body: JSON.stringify(ymBody({ card_name: name, amount })),
+      });
+      ccSpendings.unshift(row);
+      renderCc();
     } else {
       const row = await api(API.daily, {
         method: 'POST',
@@ -529,6 +566,76 @@ async function saveEditIncome() {
   }
 }
 
+function editCcItem(btn) {
+  editingItem = btn.closest('.item');
+  const name = editingItem.querySelector('.item-name').textContent;
+  const amount = parseAmt(editingItem.querySelector('.item-amount').textContent);
+
+  document.getElementById('edit-cc-name').value = name;
+  document.getElementById('edit-cc-amount').value = amount;
+
+  document.getElementById('edit-cc-modal').classList.add('active');
+  document.getElementById('edit-cc-overlay').classList.add('active');
+
+  setTimeout(() => document.getElementById('edit-cc-name').focus(), 350);
+}
+
+function closeEditCcModal() {
+  document.getElementById('edit-cc-modal').classList.remove('active');
+  document.getElementById('edit-cc-overlay').classList.remove('active');
+  editingItem = null;
+}
+
+async function saveEditCc() {
+  if (!editingItem) return;
+
+  const id = editingItem.getAttribute('data-id');
+  const name = document.getElementById('edit-cc-name').value.trim();
+  const amount = parseInt(document.getElementById('edit-cc-amount').value, 10);
+
+  if (!name || isNaN(amount) || amount <= 0) return;
+
+  try {
+    const row = await api(API.cc, {
+      method: 'PUT',
+      body: JSON.stringify({ id, card_name: name, amount }),
+    });
+    const idx = ccSpendings.findIndex((r) => r.id === id);
+    if (idx >= 0) ccSpendings[idx] = row;
+    renderCc();
+    closeEditCcModal();
+  } catch (err) {
+    alert('Không cập nhật được: ' + err.message);
+  }
+}
+
+async function deleteCcItem() {
+  if (!editingItem) return;
+  const id = editingItem.getAttribute('data-id');
+  if (!confirm('Xóa khoản tiêu thẻ này?')) return;
+  try {
+    await api(API.cc, { method: 'DELETE', body: JSON.stringify({ id }) });
+    ccSpendings = ccSpendings.filter((r) => r.id !== id);
+    renderCc();
+    closeEditCcModal();
+  } catch (err) {
+    alert('Không xóa được: ' + err.message);
+  }
+}
+
+async function deleteCcFromList(btn) {
+  const item = btn.closest('.item');
+  const id = item.getAttribute('data-id');
+  if (!confirm('Xóa khoản tiêu thẻ này?')) return;
+  try {
+    await api(API.cc, { method: 'DELETE', body: JSON.stringify({ id }) });
+    ccSpendings = ccSpendings.filter((r) => r.id !== id);
+    renderCc();
+  } catch (err) {
+    alert('Không xóa được: ' + err.message);
+  }
+}
+
 async function deleteItem(btn) {
   const item = btn.closest('.item');
   const id = item.getAttribute('data-id');
@@ -635,6 +742,21 @@ function exportCsv() {
     );
   });
 
+  ccSpendings.forEach((row) => {
+    lines.push(
+      [
+        'Thẻ tín dụng',
+        '',
+        csvEscape(row.card_name),
+        row.amount,
+        '',
+        '',
+        viewMonth,
+        viewYear,
+      ].join(',')
+    );
+  });
+
   const blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -657,17 +779,20 @@ async function loadAll() {
     });
 
     const q = ymQuery();
-    const [fixed, daily, incomeRows] = await Promise.all([
+    const [fixed, daily, incomeRows, ccs] = await Promise.all([
       api(`${API.fixed}?${q}`),
       api(`${API.daily}?${q}`),
       api(`${API.incomes}?${q}`),
+      api(`${API.cc}?${q}`),
     ]);
     fixedExpenses = fixed;
     dailyExpenses = daily;
     incomes = incomeRows;
+    ccSpendings = ccs;
     renderFixed();
     renderDaily();
     renderIncomes();
+    renderCc();
     updateSummary();
     if (status) status.textContent = '';
   } catch (err) {

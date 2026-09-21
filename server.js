@@ -7,6 +7,7 @@ const { URL } = require('url');
 const incomes = require('./api/incomes');
 const fixedExpenses = require('./api/fixed-expenses');
 const dailyExpenses = require('./api/daily-expenses');
+const creditCardSpendings = require('./api/credit-card-spendings');
 const month = require('./api/month');
 
 const PORT = process.env.PORT || 3000;
@@ -16,6 +17,7 @@ const apiRoutes = {
   '/api/incomes': incomes,
   '/api/fixed-expenses': fixedExpenses,
   '/api/daily-expenses': dailyExpenses,
+  '/api/credit-card-spendings': creditCardSpendings,
   '/api/month': month,
 };
 

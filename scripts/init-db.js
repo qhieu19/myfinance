@@ -75,15 +75,30 @@ async function initDB() {
     `);
     console.log('Created incomes table');
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS credit_card_spendings (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        card_name VARCHAR(255) NOT NULL,
+        amount INTEGER NOT NULL,
+        transaction_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        year INTEGER NOT NULL DEFAULT ${SEED_YEAR},
+        month INTEGER NOT NULL DEFAULT ${SEED_MONTH},
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    console.log('Created credit_card_spendings table');
+
     await ensureMonthColumns('fixed_expenses');
     await ensureMonthColumns('daily_expenses');
     await ensureMonthColumns('incomes');
+    await ensureMonthColumns('credit_card_spendings');
     console.log('Ensured year/month columns');
 
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_fixed_ym ON fixed_expenses (year, month);
       CREATE INDEX IF NOT EXISTS idx_daily_ym ON daily_expenses (year, month);
       CREATE INDEX IF NOT EXISTS idx_incomes_ym ON incomes (year, month);
+      CREATE INDEX IF NOT EXISTS idx_ccs_ym ON credit_card_spendings (year, month);
     `);
 
     const { rows: incomeCount } = await client.query(

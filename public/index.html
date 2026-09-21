@@ -65,6 +65,7 @@
       <button class="tab active" id="tab-fixed" onclick="switchTab('fixed')">📌 Cố Định</button>
       <button class="tab" id="tab-daily" onclick="switchTab('daily')">🛒 Hàng Ngày</button>
       <button class="tab" id="tab-income" onclick="switchTab('income')">💰 Thu Nhập</button>
+      <button class="tab" id="tab-cc" onclick="switchTab('cc')">💳 Thẻ Tín Dụng</button>
     </nav>
 
     <!-- ============ FIXED TAB CONTENT ============ -->
@@ -89,6 +90,15 @@
       <div class="list-group">
         <h3 class="list-group-title">💰 Nguồn Thu Nhập</h3>
         <ul class="item-list" id="income-list"></ul>
+      </div>
+    </div>
+
+    <!-- ============ CC TAB CONTENT ============ -->
+    <div class="tab-content" id="content-cc">
+      <ul class="item-list" id="cc-list"></ul>
+      <div class="empty-state" id="cc-empty-state" style="display:none;">
+        <span class="empty-icon">📭</span>
+        <p>Chưa có khoản chi thẻ nào</p>
       </div>
     </div>
 
@@ -205,6 +215,28 @@
     <div class="modal-actions">
       <button class="btn btn-cancel" onclick="closeEditIncomeModal()">Hủy</button>
       <button class="btn btn-save" onclick="saveEditIncome()">Cập Nhật</button>
+    </div>
+  </div>
+
+  <!-- Edit CC Modal -->
+  <div class="modal-overlay" id="edit-cc-overlay" onclick="closeEditCcModal()"></div>
+  <div class="modal" id="edit-cc-modal">
+    <div class="modal-handle"></div>
+    <h3>Sửa Tiêu Thẻ</h3>
+    <div class="modal-form">
+      <label class="form-group">
+        <span class="form-label-text">Tên Thẻ / Ghi chú</span>
+        <input type="text" id="edit-cc-name" />
+      </label>
+      <label class="form-group">
+        <span class="form-label-text">Số tiền (₫)</span>
+        <input type="number" id="edit-cc-amount" inputmode="numeric" />
+      </label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-cancel" onclick="deleteCcItem()" style="color:#c62828;">Xóa</button>
+      <button class="btn btn-cancel" onclick="closeEditCcModal()">Hủy</button>
+      <button class="btn btn-save" onclick="saveEditCc()">Cập Nhật</button>
     </div>
   </div>
 
