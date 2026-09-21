@@ -365,7 +365,7 @@ function closeModal() {
 
 async function saveExpense() {
   const name = document.getElementById('input-name').value.trim();
-  const amount = parseInt(document.getElementById('input-amount').value, 10);
+  const amount = parseAmt(document.getElementById('input-amount').value);
 
   if (!name || isNaN(amount) || amount <= 0) {
     const modal = document.getElementById('modal');
@@ -448,7 +448,7 @@ async function saveEdit() {
 
   const id = editingItem.getAttribute('data-id');
   const name = document.getElementById('edit-name').value.trim();
-  const amount = parseInt(document.getElementById('edit-amount').value, 10);
+  const amount = parseAmt(document.getElementById('edit-amount').value);
 
   if (!name || isNaN(amount) || amount <= 0) return;
 
@@ -496,8 +496,8 @@ async function saveEditFixed() {
 
   const id = editingItem.getAttribute('data-id');
   const due = document.getElementById('edit-fixed-due').value.trim();
-  const est = parseInt(document.getElementById('edit-fixed-estimate').value, 10) || 0;
-  const act = parseInt(document.getElementById('edit-fixed-actual').value, 10) || 0;
+  const est = parseAmt(document.getElementById('edit-fixed-estimate').value) || 0;
+  const act = parseAmt(document.getElementById('edit-fixed-actual').value) || 0;
   const paid = document.getElementById('edit-fixed-paid').checked;
 
   try {
@@ -547,7 +547,7 @@ async function saveEditIncome() {
 
   const id = editingItem.getAttribute('data-id');
   const name = document.getElementById('edit-income-name').value.trim();
-  const amount = parseInt(document.getElementById('edit-income-amount').value, 10) || 0;
+  const amount = parseAmt(document.getElementById('edit-income-amount').value) || 0;
 
   if (!name || amount <= 0) return;
 
@@ -591,7 +591,7 @@ async function saveEditCc() {
 
   const id = editingItem.getAttribute('data-id');
   const name = document.getElementById('edit-cc-name').value.trim();
-  const amount = parseInt(document.getElementById('edit-cc-amount').value, 10);
+  const amount = parseAmt(document.getElementById('edit-cc-amount').value);
 
   if (!name || isNaN(amount) || amount <= 0) return;
 
@@ -804,3 +804,14 @@ async function loadAll() {
 updateMonthLabel();
 updateExportReminder();
 loadAll();
+
+document.addEventListener('input', function (e) {
+  if (e.target.classList.contains('amount-input')) {
+    let val = parseAmt(e.target.value);
+    if (val === 0 && !/[0-9]/.test(e.target.value)) {
+      e.target.value = '';
+    } else {
+      e.target.value = val.toLocaleString('vi-VN');
+    }
+  }
+});
