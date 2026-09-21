@@ -363,7 +363,8 @@ function closeModal() {
   document.getElementById('modal-overlay').classList.remove('active');
 }
 
-async function saveExpense() {
+async function saveExpense(btn) {
+  if (btn && btn.disabled) return;
   const name = document.getElementById('input-name').value.trim();
   const amount = parseAmt(document.getElementById('input-amount').value);
 
@@ -373,6 +374,12 @@ async function saveExpense() {
     void modal.offsetHeight;
     modal.style.animation = 'shake 0.4s ease';
     return;
+  }
+
+  if (btn) {
+    btn.disabled = true;
+    btn.dataset.text = btn.textContent;
+    btn.textContent = 'Đang lưu...';
   }
 
   try {
@@ -420,6 +427,11 @@ async function saveExpense() {
     updateSummary();
   } catch (err) {
     alert('Không lưu được: ' + err.message);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = btn.dataset.text;
+    }
   }
 }
 
@@ -443,14 +455,21 @@ function closeEditModal() {
   editingItem = null;
 }
 
-async function saveEdit() {
+async function saveEdit(btn) {
   if (!editingItem) return;
+  if (btn && btn.disabled) return;
 
   const id = editingItem.getAttribute('data-id');
   const name = document.getElementById('edit-name').value.trim();
   const amount = parseAmt(document.getElementById('edit-amount').value);
 
   if (!name || isNaN(amount) || amount <= 0) return;
+
+  if (btn) {
+    btn.disabled = true;
+    btn.dataset.text = btn.textContent;
+    btn.textContent = 'Đang lưu...';
+  }
 
   try {
     const row = await api(API.daily, {
@@ -464,6 +483,11 @@ async function saveEdit() {
     updateSummary();
   } catch (err) {
     alert('Không cập nhật được: ' + err.message);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = btn.dataset.text;
+    }
   }
 }
 
@@ -491,14 +515,21 @@ function closeEditFixedModal() {
   editingItem = null;
 }
 
-async function saveEditFixed() {
+async function saveEditFixed(btn) {
   if (!editingItem) return;
+  if (btn && btn.disabled) return;
 
   const id = editingItem.getAttribute('data-id');
   const due = document.getElementById('edit-fixed-due').value.trim();
   const est = parseAmt(document.getElementById('edit-fixed-estimate').value) || 0;
   const act = parseAmt(document.getElementById('edit-fixed-actual').value) || 0;
   const paid = document.getElementById('edit-fixed-paid').checked;
+
+  if (btn) {
+    btn.disabled = true;
+    btn.dataset.text = btn.textContent;
+    btn.textContent = 'Đang lưu...';
+  }
 
   try {
     const row = await api(API.fixed, {
@@ -518,6 +549,11 @@ async function saveEditFixed() {
     updateSummary();
   } catch (err) {
     alert('Không cập nhật được: ' + err.message);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = btn.dataset.text;
+    }
   }
 }
 
@@ -542,14 +578,21 @@ function closeEditIncomeModal() {
   editingItem = null;
 }
 
-async function saveEditIncome() {
+async function saveEditIncome(btn) {
   if (!editingItem) return;
+  if (btn && btn.disabled) return;
 
   const id = editingItem.getAttribute('data-id');
   const name = document.getElementById('edit-income-name').value.trim();
   const amount = parseAmt(document.getElementById('edit-income-amount').value) || 0;
 
   if (!name || amount <= 0) return;
+
+  if (btn) {
+    btn.disabled = true;
+    btn.dataset.text = btn.textContent;
+    btn.textContent = 'Đang lưu...';
+  }
 
   try {
     const row = await api(API.incomes, {
@@ -563,6 +606,11 @@ async function saveEditIncome() {
     updateSummary();
   } catch (err) {
     alert('Không cập nhật được: ' + err.message);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = btn.dataset.text;
+    }
   }
 }
 
@@ -586,14 +634,21 @@ function closeEditCcModal() {
   editingItem = null;
 }
 
-async function saveEditCc() {
+async function saveEditCc(btn) {
   if (!editingItem) return;
+  if (btn && btn.disabled) return;
 
   const id = editingItem.getAttribute('data-id');
   const name = document.getElementById('edit-cc-name').value.trim();
   const amount = parseAmt(document.getElementById('edit-cc-amount').value);
 
   if (!name || isNaN(amount) || amount <= 0) return;
+
+  if (btn) {
+    btn.disabled = true;
+    btn.dataset.text = btn.textContent;
+    btn.textContent = 'Đang lưu...';
+  }
 
   try {
     const row = await api(API.cc, {
@@ -606,6 +661,11 @@ async function saveEditCc() {
     closeEditCcModal();
   } catch (err) {
     alert('Không cập nhật được: ' + err.message);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = btn.dataset.text;
+    }
   }
 }
 
