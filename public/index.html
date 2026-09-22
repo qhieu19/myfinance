@@ -26,50 +26,41 @@
         <p class="header-sub" id="month-label">Tháng 9, 2026</p>
         <button type="button" class="month-btn" id="btn-next-month" onclick="shiftMonth(1)" aria-label="Tháng sau">›</button>
       </div>
-      <p class="header-sub" id="load-status" style="opacity:0.7;font-size:0.85rem;"></p>
-      <button type="button" class="btn-export" id="btn-export" onclick="exportCsv()">
-        ⬇️ Xuất CSV
-      </button>
+      <p class="header-sub" id="load-status"></p>
     </header>
 
-    <!-- Balance Hero -->
-    <section class="balance-card">
+    <!-- Bank balance (not income − expense) -->
+    <section class="balance-card" onclick="openBalances()" role="button" tabindex="0">
+      <div class="balance-hero">
+        <span class="balance-hero-label">Số dư ngân hàng</span>
+        <span class="balance-hero-value" id="bank-display">0₫</span>
+      </div>
       <div class="balance-top">
         <div class="balance-col">
-          <span class="balance-label">Thu nhập</span>
-          <span class="balance-income" id="income-display">60.000.000₫</span>
+          <span class="balance-label">Thu tháng này</span>
+          <span class="balance-income" id="income-display">0₫</span>
         </div>
         <div class="balance-col right">
-          <span class="balance-label">Đã chi</span>
+          <span class="balance-label">Chi tháng này</span>
           <span class="balance-spent" id="spent-display">0₫</span>
         </div>
       </div>
-      <div class="balance-hero">
-        <span class="balance-hero-label">Số dư còn lại</span>
-        <span class="balance-hero-value" id="remaining-display">60.000.000₫</span>
-      </div>
-      <div class="progress-bar">
-        <div class="progress-fill" id="progress-fill" style="width: 0%;"></div>
-      </div>
-      <div class="progress-meta">
-        <span class="progress-text" id="progress-text">Đã chi 0% thu nhập</span>
-        <div class="balance-breakdown">
-          <span class="breakdown-chip">📌 CĐ: <strong id="sum-fixed">0₫</strong></span>
-          <span class="breakdown-chip">🛒 HN: <strong id="sum-daily">0₫</strong></span>
-        </div>
+      <div class="balance-breakdown">
+        <span class="breakdown-chip">📌 CĐ: <strong id="sum-fixed">0₫</strong></span>
+        <span class="breakdown-chip">🛒 HN: <strong id="sum-daily">0₫</strong></span>
+        <span class="breakdown-chip">Sửa số dư ›</span>
       </div>
     </section>
 
-    <!-- Tabs -->
     <nav class="tabs">
-      <button class="tab active" id="tab-fixed" onclick="switchTab('fixed')">📌 Cố Định</button>
-      <button class="tab" id="tab-daily" onclick="switchTab('daily')">🛒 Hàng Ngày</button>
-      <button class="tab" id="tab-income" onclick="switchTab('income')">💰 Thu Nhập</button>
-      <button class="tab" id="tab-cc" onclick="switchTab('cc')">💳 Thẻ Tín Dụng</button>
+      <button class="tab active" id="tab-daily" onclick="switchTab('daily')">🛒 Chi tiêu</button>
+      <button class="tab" id="tab-fixed" onclick="switchTab('fixed')">📌 Cố định</button>
+      <button class="tab" id="tab-income" onclick="switchTab('income')">💰 Thu</button>
+      <button class="tab" id="tab-cc" onclick="switchTab('cc')">💳 Thẻ</button>
     </nav>
 
     <!-- ============ FIXED TAB CONTENT ============ -->
-    <div class="tab-content active" id="content-fixed">
+    <div class="tab-content" id="content-fixed">
       <div class="empty-state">
         <span class="empty-icon">⏳</span>
         <p>Đang tải...</p>
@@ -77,7 +68,7 @@
     </div>
 
     <!-- ============ DAILY TAB CONTENT ============ -->
-    <div class="tab-content" id="content-daily">
+    <div class="tab-content active" id="content-daily">
       <ul class="item-list" id="daily-list"></ul>
       <div class="empty-state" id="empty-state" style="display:none;">
         <span class="empty-icon">📭</span>
@@ -102,10 +93,12 @@
       </div>
     </div>
 
-    <!-- FAB -->
-    <button class="fab" id="fab" onclick="openModal()" aria-label="Thêm khoản">
-      <span class="fab-icon">＋</span>
-    </button>
+    <!-- Dock for daily use -->
+    <nav class="dock">
+      <button type="button" class="dock-btn dock-primary" onclick="openAddDaily()" aria-label="Thêm chi tiêu">＋ Chi hôm nay</button>
+      <button type="button" class="dock-btn" onclick="openBalances()">💵 Số dư</button>
+      <button type="button" class="dock-btn" id="btn-export" onclick="exportCsv()">⬇️ CSV</button>
+    </nav>
 
     <div class="safe-area-bottom"></div>
   </div>
@@ -241,6 +234,31 @@
   </div>
 
 
+  </div>
+
+  <!-- Bank balances -->
+  <div class="modal-overlay" id="balance-overlay" onclick="closeBalances()"></div>
+  <div class="modal" id="balance-modal">
+    <div class="modal-handle"></div>
+    <h3>Số dư ngân hàng</h3>
+    <ul class="item-list" id="balance-list"></ul>
+    <div class="modal-form" style="margin-top:1rem;">
+      <label class="form-group">
+        <span class="form-label-text">Tài khoản mới</span>
+        <input type="text" id="input-bank-name" placeholder="VD: TPBank, Tiền mặt..." />
+      </label>
+      <label class="form-group">
+        <span class="form-label-text">Số dư (₫)</span>
+        <input type="text" id="input-bank-amount" class="amount-input" inputmode="numeric" placeholder="0" />
+      </label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-cancel" onclick="closeBalances()">Đóng</button>
+      <button class="btn btn-save" onclick="saveBank(this)">Thêm tài khoản</button>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
   <script src="script.js"></script>
 </body>
 

@@ -76,6 +76,16 @@ async function initDB() {
     console.log('Created incomes table');
 
     await client.query(`
+      CREATE TABLE IF NOT EXISTS bank_balances (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        name VARCHAR(255) NOT NULL,
+        amount INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    console.log('Created bank_balances table');
+
+    await client.query(`
       CREATE TABLE IF NOT EXISTS credit_card_spendings (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         card_name VARCHAR(255) NOT NULL,
@@ -155,6 +165,36 @@ async function initDB() {
         console.log('Seeded daily_expenses for', SEED_MONTH, SEED_YEAR);
       }
     }
+
+    const { rows: bankCount } = await client.query('SELECT COUNT(*)::int AS n FROM bank_balances');
+    if (bankCount[0].n === 0) {
+      await client.query(`
+        INSERT INTO bank_balances (name, amount) VALUES
+          ('Vietcombank', 0),
+          ('Tiền mặt', 0);
+      `);
+      console.log('Seeded bank_balances');
+    }
+
+    const tables = [
+      'fixed_expenses',
+      'daily_expenses',
+      'incomes',
+      'credit_card_spendings',
+      'bank_balances',
+    ];
+    for (const table of tables) {
+      await client.query(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY`);
+      await client.query(`DROP POLICY IF EXISTS public_all ON ${table}`);
+      await client.query(`
+        CREATE POLICY public_all ON ${table}
+        FOR ALL TO anon, authenticated
+        USING (true) WITH CHECK (true)
+      `);
+      await client.query(`GRANT ALL ON TABLE ${table} TO anon, authenticated`);
+    }
+    await client.query('GRANT USAGE ON SCHEMA public TO anon, authenticated');
+    console.log('Enabled REST access (RLS policies for anon)');
 
     console.log('Database initialization completed successfully!');
   } catch (err) {
