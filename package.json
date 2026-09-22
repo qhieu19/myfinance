@@ -12,8 +12,5 @@
   },
   "license": "ISC",
   "type": "commonjs",
-  "dependencies": {
-    "dotenv": "^18.0.0",
-    "pg": "^8.23.0"
-  }
+  "dependencies": {}
 }

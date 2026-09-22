@@ -1,14 +1,11 @@
 // ============================================================
-// BUDGET TRACKER – Front-end Logic (Supabase via /api)
+// BUDGET TRACKER – Front-end Logic (Supabase Direct via supabase-js)
 // ============================================================
 
-const API = {
-  incomes: '/api/incomes',
-  fixed: '/api/fixed-expenses',
-  daily: '/api/daily-expenses',
-  cc: '/api/credit-card-spendings',
-  month: '/api/month',
-};
+const supabase = window.supabase.createClient(
+  window.MYFINANCE_CONFIG.url,
+  window.MYFINANCE_CONFIG.anonKey
+);
 
 let currentTab = 'fixed';
 let editingItem = null;
@@ -78,16 +75,6 @@ function csvEscape(value) {
   const s = String(value ?? '');
   if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
   return s;
-}
-
-async function api(url, options = {}) {
-  const res = await fetch(url, {
-    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
-    ...options,
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || 'Request failed');
-  return data;
 }
 
 function updateMonthLabel() {
@@ -384,43 +371,35 @@ async function saveExpense(btn) {
 
   try {
     if (currentTab === 'income') {
-      const row = await api(API.incomes, {
-        method: 'POST',
-        body: JSON.stringify(ymBody({ name, amount })),
-      });
-      incomes.push(row);
+      const { data, error } = await supabase.from('incomes').insert([ymBody({ name, amount })]).select().single();
+      if (error) throw error;
+      incomes.push(data);
       renderIncomes();
     } else if (currentTab === 'fixed') {
       const category = document.getElementById('input-category').value;
       const dueRaw = document.getElementById('input-due').value.trim();
-      const row = await api(API.fixed, {
-        method: 'POST',
-        body: JSON.stringify(
-          ymBody({
-            name,
-            category,
-            estimate_amount: amount,
-            actual_amount: 0,
-            due_day: dueRaw,
-            is_paid: false,
-          })
-        ),
-      });
-      fixedExpenses.push(row);
+      const { data, error } = await supabase.from('fixed_expenses').insert([
+        ymBody({
+          name,
+          category,
+          estimate_amount: amount,
+          actual_amount: 0,
+          due_day: dueRaw || null,
+          is_paid: false,
+        })
+      ]).select().single();
+      if (error) throw error;
+      fixedExpenses.push(data);
       renderFixed();
     } else if (currentTab === 'cc') {
-      const row = await api(API.cc, {
-        method: 'POST',
-        body: JSON.stringify(ymBody({ card_name: name, amount })),
-      });
-      ccSpendings.unshift(row);
+      const { data, error } = await supabase.from('credit_card_spendings').insert([ymBody({ card_name: name, amount })]).select().single();
+      if (error) throw error;
+      ccSpendings.unshift(data);
       renderCc();
     } else {
-      const row = await api(API.daily, {
-        method: 'POST',
-        body: JSON.stringify(ymBody({ name, amount })),
-      });
-      dailyExpenses.unshift(row);
+      const { data, error } = await supabase.from('daily_expenses').insert([ymBody({ name, amount })]).select().single();
+      if (error) throw error;
+      dailyExpenses.unshift(data);
       renderDaily();
     }
     closeModal();
@@ -472,12 +451,10 @@ async function saveEdit(btn) {
   }
 
   try {
-    const row = await api(API.daily, {
-      method: 'PUT',
-      body: JSON.stringify({ id, name, amount }),
-    });
-    const idx = dailyExpenses.findIndex((r) => r.id === id);
-    if (idx >= 0) dailyExpenses[idx] = row;
+    const { data, error } = await supabase.from('daily_expenses').update({ name, amount }).eq('id', id).select().single();
+    if (error) throw error;
+    const idx = dailyExpenses.findIndex((r) => String(r.id) === String(id));
+    if (idx >= 0) dailyExpenses[idx] = data;
     renderDaily();
     closeEditModal();
     updateSummary();
@@ -494,7 +471,7 @@ async function saveEdit(btn) {
 function editFixedItem(btn) {
   editingItem = btn.closest('.item');
   const id = editingItem.getAttribute('data-id');
-  const row = fixedExpenses.find((r) => r.id === id);
+  const row = fixedExpenses.find((r) => String(r.id) === String(id));
   if (!row) return;
 
   document.getElementById('edit-fixed-title').textContent = row.name;
@@ -532,18 +509,16 @@ async function saveEditFixed(btn) {
   }
 
   try {
-    const row = await api(API.fixed, {
-      method: 'PUT',
-      body: JSON.stringify({
-        id,
+    const { data, error } = await supabase.from('fixed_expenses').update({
         estimate_amount: est,
         actual_amount: act,
-        due_day: due,
+        due_day: due || null,
         is_paid: paid,
-      }),
-    });
-    const idx = fixedExpenses.findIndex((r) => r.id === id);
-    if (idx >= 0) fixedExpenses[idx] = row;
+    }).eq('id', id).select().single();
+    if (error) throw error;
+    
+    const idx = fixedExpenses.findIndex((r) => String(r.id) === String(id));
+    if (idx >= 0) fixedExpenses[idx] = data;
     renderFixed();
     closeEditFixedModal();
     updateSummary();
@@ -595,12 +570,11 @@ async function saveEditIncome(btn) {
   }
 
   try {
-    const row = await api(API.incomes, {
-      method: 'PUT',
-      body: JSON.stringify({ id, name, amount }),
-    });
-    const idx = incomes.findIndex((r) => r.id === id);
-    if (idx >= 0) incomes[idx] = row;
+    const { data, error } = await supabase.from('incomes').update({ name, amount }).eq('id', id).select().single();
+    if (error) throw error;
+    
+    const idx = incomes.findIndex((r) => String(r.id) === String(id));
+    if (idx >= 0) incomes[idx] = data;
     renderIncomes();
     closeEditIncomeModal();
     updateSummary();
@@ -651,12 +625,11 @@ async function saveEditCc(btn) {
   }
 
   try {
-    const row = await api(API.cc, {
-      method: 'PUT',
-      body: JSON.stringify({ id, card_name: name, amount }),
-    });
-    const idx = ccSpendings.findIndex((r) => r.id === id);
-    if (idx >= 0) ccSpendings[idx] = row;
+    const { data, error } = await supabase.from('credit_card_spendings').update({ card_name: name, amount }).eq('id', id).select().single();
+    if (error) throw error;
+    
+    const idx = ccSpendings.findIndex((r) => String(r.id) === String(id));
+    if (idx >= 0) ccSpendings[idx] = data;
     renderCc();
     closeEditCcModal();
   } catch (err) {
@@ -674,8 +647,10 @@ async function deleteCcItem() {
   const id = editingItem.getAttribute('data-id');
   if (!confirm('Xóa khoản tiêu thẻ này?')) return;
   try {
-    await api(API.cc, { method: 'DELETE', body: JSON.stringify({ id }) });
-    ccSpendings = ccSpendings.filter((r) => r.id !== id);
+    const { error } = await supabase.from('credit_card_spendings').delete().eq('id', id);
+    if (error) throw error;
+    
+    ccSpendings = ccSpendings.filter((r) => String(r.id) !== String(id));
     renderCc();
     closeEditCcModal();
   } catch (err) {
@@ -688,8 +663,10 @@ async function deleteCcFromList(btn) {
   const id = item.getAttribute('data-id');
   if (!confirm('Xóa khoản tiêu thẻ này?')) return;
   try {
-    await api(API.cc, { method: 'DELETE', body: JSON.stringify({ id }) });
-    ccSpendings = ccSpendings.filter((r) => r.id !== id);
+    const { error } = await supabase.from('credit_card_spendings').delete().eq('id', id);
+    if (error) throw error;
+    
+    ccSpendings = ccSpendings.filter((r) => String(r.id) !== String(id));
     renderCc();
   } catch (err) {
     alert('Không xóa được: ' + err.message);
@@ -700,19 +677,17 @@ async function deleteItem(btn) {
   const item = btn.closest('.item');
   const id = item.getAttribute('data-id');
   const isIncome = currentTab === 'income';
-  const endpoint = isIncome ? API.incomes : API.daily;
+  const table = isIncome ? 'incomes' : 'daily_expenses';
 
   try {
-    await api(endpoint, {
-      method: 'DELETE',
-      body: JSON.stringify({ id }),
-    });
+    const { error } = await supabase.from(table).delete().eq('id', id);
+    if (error) throw error;
 
     if (isIncome) {
-      incomes = incomes.filter((r) => r.id !== id);
+      incomes = incomes.filter((r) => String(r.id) !== String(id));
       renderIncomes();
     } else {
-      dailyExpenses = dailyExpenses.filter((r) => r.id !== id);
+      dailyExpenses = dailyExpenses.filter((r) => String(r.id) !== String(id));
       renderDaily();
     }
     updateSummary();
@@ -726,8 +701,10 @@ async function deleteFixedFromList(btn) {
   const id = item.getAttribute('data-id');
   if (!confirm('Xóa khoản cố định này?')) return;
   try {
-    await api(API.fixed, { method: 'DELETE', body: JSON.stringify({ id }) });
-    fixedExpenses = fixedExpenses.filter((r) => r.id !== id);
+    const { error } = await supabase.from('fixed_expenses').delete().eq('id', id);
+    if (error) throw error;
+    
+    fixedExpenses = fixedExpenses.filter((r) => String(r.id) !== String(id));
     renderFixed();
     updateSummary();
   } catch (err) {
@@ -740,8 +717,10 @@ async function deleteFixedItem() {
   const id = editingItem.getAttribute('data-id');
   if (!confirm('Xóa khoản cố định này?')) return;
   try {
-    await api(API.fixed, { method: 'DELETE', body: JSON.stringify({ id }) });
-    fixedExpenses = fixedExpenses.filter((r) => r.id !== id);
+    const { error } = await supabase.from('fixed_expenses').delete().eq('id', id);
+    if (error) throw error;
+    
+    fixedExpenses = fixedExpenses.filter((r) => String(r.id) !== String(id));
     renderFixed();
     closeEditFixedModal();
     updateSummary();
@@ -826,6 +805,58 @@ function exportCsv() {
   URL.revokeObjectURL(url);
 }
 
+async function copyMonthDataIfNeeded(year, month) {
+  // Check if current month has data
+  const { count: fixedCount } = await supabase.from('fixed_expenses').select('*', { count: 'exact', head: true }).eq('year', year).eq('month', month);
+  const { count: incomeCount } = await supabase.from('incomes').select('*', { count: 'exact', head: true }).eq('year', year).eq('month', month);
+  
+  if (fixedCount > 0 && incomeCount > 0) return; // Already has data
+
+  // Find latest month with fixed expenses before this month
+  const { data: latestFixedDate } = await supabase.from('fixed_expenses')
+    .select('year, month')
+    .or(`year.lt.${year},and(year.eq.${year},month.lt.${month})`)
+    .order('year', { ascending: false }).order('month', { ascending: false }).limit(1);
+    
+  if (latestFixedDate && latestFixedDate.length > 0 && fixedCount === 0) {
+    const { year: srcYear, month: srcMonth } = latestFixedDate[0];
+    const { data: srcFixed } = await supabase.from('fixed_expenses').select('*').eq('year', srcYear).eq('month', srcMonth);
+    if (srcFixed && srcFixed.length > 0) {
+      const newFixed = srcFixed.map(r => ({
+        name: r.name,
+        category: r.category,
+        estimate_amount: r.estimate_amount,
+        actual_amount: 0,
+        due_day: r.due_day,
+        is_paid: false,
+        year: year,
+        month: month
+      }));
+      await supabase.from('fixed_expenses').insert(newFixed);
+    }
+  }
+
+  // Find latest month with incomes before this month
+  const { data: latestIncomeDate } = await supabase.from('incomes')
+    .select('year, month')
+    .or(`year.lt.${year},and(year.eq.${year},month.lt.${month})`)
+    .order('year', { ascending: false }).order('month', { ascending: false }).limit(1);
+    
+  if (latestIncomeDate && latestIncomeDate.length > 0 && incomeCount === 0) {
+    const { year: srcYear, month: srcMonth } = latestIncomeDate[0];
+    const { data: srcIncomes } = await supabase.from('incomes').select('*').eq('year', srcYear).eq('month', srcMonth);
+    if (srcIncomes && srcIncomes.length > 0) {
+      const newIncomes = srcIncomes.map(r => ({
+        name: r.name,
+        amount: r.amount,
+        year: year,
+        month: month
+      }));
+      await supabase.from('incomes').insert(newIncomes);
+    }
+  }
+}
+
 async function loadAll() {
   const status = document.getElementById('load-status');
   if (status) status.textContent = 'Đang tải dữ liệu...';
@@ -833,22 +864,30 @@ async function loadAll() {
   updateExportReminder();
 
   try {
-    await api(API.month, {
-      method: 'POST',
-      body: JSON.stringify({ year: viewYear, month: viewMonth }),
-    });
+    await copyMonthDataIfNeeded(viewYear, viewMonth);
 
-    const q = ymQuery();
-    const [fixed, daily, incomeRows, ccs] = await Promise.all([
-      api(`${API.fixed}?${q}`),
-      api(`${API.daily}?${q}`),
-      api(`${API.incomes}?${q}`),
-      api(`${API.cc}?${q}`),
+    const [
+      { data: fixed, error: fixedErr },
+      { data: daily, error: dailyErr },
+      { data: incomeRows, error: incomeErr },
+      { data: ccs, error: ccErr }
+    ] = await Promise.all([
+      supabase.from('fixed_expenses').select('*').eq('year', viewYear).eq('month', viewMonth).order('created_at', { ascending: true }),
+      supabase.from('daily_expenses').select('*').eq('year', viewYear).eq('month', viewMonth).order('created_at', { ascending: false }),
+      supabase.from('incomes').select('*').eq('year', viewYear).eq('month', viewMonth).order('created_at', { ascending: true }),
+      supabase.from('credit_card_spendings').select('*').eq('year', viewYear).eq('month', viewMonth).order('created_at', { ascending: false })
     ]);
-    fixedExpenses = fixed;
-    dailyExpenses = daily;
-    incomes = incomeRows;
-    ccSpendings = ccs;
+
+    if (fixedErr) throw fixedErr;
+    if (dailyErr) throw dailyErr;
+    if (incomeErr) throw incomeErr;
+    if (ccErr) throw ccErr;
+
+    fixedExpenses = fixed || [];
+    dailyExpenses = daily || [];
+    incomes = incomeRows || [];
+    ccSpendings = ccs || [];
+    
     renderFixed();
     renderDaily();
     renderIncomes();
