@@ -1,6 +1,16 @@
 const { getPool } = require('../lib/db');
 const { send, readBody, parseYearMonth } = require('../lib/http');
 
+function daysInMonth(year, month) {
+  return new Date(year, month, 0).getDate();
+}
+
+function adjustDueDay(dueDay, year, month) {
+  if (dueDay == null) return null;
+  const lastDay = daysInMonth(year, month);
+  return dueDay > lastDay ? lastDay : dueDay;
+}
+
 /** Copy incomes + fixed expenses from the previous month into an empty target month. */
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return send(res, 204, {});
@@ -61,7 +71,7 @@ module.exports = async function handler(req, res) {
           `INSERT INTO fixed_expenses
              (name, category, estimate_amount, actual_amount, due_day, is_paid, year, month)
            VALUES ($1, $2, $3, 0, $4, false, $5, $6)`,
-          [row.name, row.category, row.estimate_amount, row.due_day, year, month]
+          [row.name, row.category, row.estimate_amount, adjustDueDay(row.due_day, year, month), year, month]
         );
         copiedFixed += 1;
       }
