@@ -55,6 +55,85 @@ function parseAmt(str) {
   return parseInt(String(str).replace(/[.₫\s]/g, ''), 10) || 0;
 }
 
+function pad2(n) {
+  return String(n).padStart(2, '0');
+}
+
+function toDateStr(year, month, day) {
+  return year + '-' + pad2(month) + '-' + pad2(day);
+}
+
+function daysInMonth(year, month) {
+  return new Date(year, month, 0).getDate();
+}
+
+function defaultDateStr() {
+  const last = daysInMonth(viewYear, viewMonth);
+  const isCurrent =
+    viewYear === today.getFullYear() && viewMonth === today.getMonth() + 1;
+  const day = isCurrent ? today.getDate() : Math.min(today.getDate(), last);
+  return toDateStr(viewYear, viewMonth, Math.min(day, last));
+}
+
+function rowToDateStr(row) {
+  if (row && row.day) return toDateStr(row.year || viewYear, row.month || viewMonth, row.day);
+  if (row && row.transaction_date) {
+    const s = String(row.transaction_date);
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  }
+  return defaultDateStr();
+}
+
+function readDateInput(id) {
+  const v = (document.getElementById(id).value || '').slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) {
+    return {
+      date: v,
+      year: Number(v.slice(0, 4)),
+      month: Number(v.slice(5, 7)),
+      day: Number(v.slice(8, 10)),
+    };
+  }
+  const fallback = defaultDateStr();
+  return {
+    date: fallback,
+    year: viewYear,
+    month: viewMonth,
+    day: Number(fallback.slice(8, 10)),
+  };
+}
+
+function formatEntryDay(row) {
+  const day = Number(row && row.day);
+  if (!day) return '';
+  const y = row.year || viewYear;
+  const m = row.month || viewMonth;
+  const isToday =
+    y === today.getFullYear() && m === today.getMonth() + 1 && day === today.getDate();
+  return isToday ? 'Hôm nay' : day + '/' + m + '/' + y;
+}
+
+function formatCcDate(row) {
+  const s = row && row.transaction_date ? String(row.transaction_date) : '';
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+    const y = Number(s.slice(0, 4));
+    const m = Number(s.slice(5, 7));
+    const d = Number(s.slice(8, 10));
+    return formatEntryDay({ year: y, month: m, day: d });
+  }
+  return formatMetaDate(row && row.transaction_date);
+}
+
+async function applySavedRow(row) {
+  if (!row) return false;
+  if (Number(row.year) === viewYear && Number(row.month) === viewMonth) return false;
+  viewYear = Number(row.year);
+  viewMonth = Number(row.month);
+  updateMonthLabel();
+  await loadAll();
+  return true;
+}
+
 function escHtml(s) {
   const d = document.createElement('div');
   d.textContent = s;
@@ -157,9 +236,9 @@ function updateSummary() {
   document.getElementById('income-display').textContent = fmt(INCOME);
 
   fixedExpenses.forEach((row) => {
+    if (!row.is_paid) return;
     const actual = Number(row.actual_amount) || 0;
-    const estimate = Number(row.estimate_amount) || 0;
-    fixedTotal += actual > 0 ? actual : estimate;
+    fixedTotal += actual;
   });
 
   dailyExpenses.forEach((row) => {
@@ -273,7 +352,7 @@ function renderDaily() {
       <li class="item" data-id="${row.id}">
         <div class="item-body">
           <span class="item-name">${escHtml(row.name)}</span>
-          <span class="item-meta">${row.day ? 'Ngày ' + row.day : escHtml(formatMetaDate(row.created_at) || 'Chi tiêu')}</span>
+          <span class="item-meta">${escHtml(formatEntryDay(row) || formatMetaDate(row.created_at) || 'Chi tiêu')}</span>
         </div>
         <div class="item-right">
           <span class="item-amount unpaid">${fmt(row.amount)}</span>
@@ -296,7 +375,7 @@ function renderCc() {
       <li class="item" data-id="${row.id}">
         <div class="item-body">
           <span class="item-name">${escHtml(row.card_name)}</span>
-          <span class="item-meta">${escHtml(formatMetaDate(row.transaction_date) || 'Chi tiêu thẻ')}</span>
+          <span class="item-meta">${escHtml(formatCcDate(row) || 'Chi tiêu thẻ')}</span>
         </div>
         <div class="item-right">
           <span class="item-amount" style="color: #e53935;">${fmt(row.amount)}</span>
@@ -319,7 +398,7 @@ function renderIncomes() {
       <li class="item" data-id="${row.id}" data-amount="${row.amount}">
         <div class="item-body">
           <span class="item-name">${escHtml(row.name)}</span>
-          <span class="item-meta">Nguồn thu</span>
+          <span class="item-meta">${escHtml(formatEntryDay(row) || 'Nguồn thu')}</span>
         </div>
         <div class="item-right">
           <span class="item-amount paid">${fmt(row.amount)}</span>
@@ -337,14 +416,14 @@ function openModal() {
   document.getElementById('input-name').value = '';
   document.getElementById('input-amount').value = '';
   document.getElementById('input-due').value = '';
-  document.getElementById('input-day').value = '';
+  document.getElementById('input-date').value = defaultDateStr();
   document.getElementById('input-category').value = 'Tiền Sinh Hoạt';
 
   const isFixed = currentTab === 'fixed';
-  const isDaily = currentTab === 'daily';
+  const needsDate = currentTab === 'daily' || currentTab === 'cc' || currentTab === 'income';
   document.getElementById('group-category').style.display = isFixed ? '' : 'none';
   document.getElementById('group-due').style.display = isFixed ? '' : 'none';
-  document.getElementById('group-day').style.display = isDaily ? '' : 'none';
+  document.getElementById('group-date').style.display = needsDate ? '' : 'none';
   document.getElementById('label-amount').textContent = isFixed ? 'Dự tính (₫)' : 'Số tiền (₫)';
 
   const titles = {
@@ -387,10 +466,13 @@ async function saveExpense(btn) {
 
   try {
     if (currentTab === 'income') {
+      const when = readDateInput('input-date');
       const row = await api(API.incomes, {
         method: 'POST',
-        body: JSON.stringify(ymBody({ name, amount })),
+        body: JSON.stringify({ name, amount, date: when.date, year: when.year, month: when.month, day: when.day }),
       });
+      closeModal();
+      if (await applySavedRow(row)) return;
       incomes.push(row);
       renderIncomes();
     } else if (currentTab === 'fixed') {
@@ -412,17 +494,37 @@ async function saveExpense(btn) {
       fixedExpenses.push(row);
       renderFixed();
     } else if (currentTab === 'cc') {
+      const when = readDateInput('input-date');
       const row = await api(API.cc, {
         method: 'POST',
-        body: JSON.stringify(ymBody({ card_name: name, amount })),
+        body: JSON.stringify({
+          card_name: name,
+          amount,
+          date: when.date,
+          year: when.year,
+          month: when.month,
+          day: when.day,
+        }),
       });
+      closeModal();
+      if (await applySavedRow(row)) return;
       ccSpendings.unshift(row);
       renderCc();
     } else {
+      const when = readDateInput('input-date');
       const row = await api(API.daily, {
         method: 'POST',
-        body: JSON.stringify(ymBody({ name, amount, day: document.getElementById('input-day').value.trim() || null })),
+        body: JSON.stringify({
+          name,
+          amount,
+          date: when.date,
+          year: when.year,
+          month: when.month,
+          day: when.day,
+        }),
       });
+      closeModal();
+      if (await applySavedRow(row)) return;
       dailyExpenses.unshift(row);
       renderDaily();
     }
@@ -447,7 +549,7 @@ function editItem(btn) {
 
   document.getElementById('edit-name').value = name;
   document.getElementById('edit-amount').value = amount;
-  document.getElementById('edit-day').value = row && row.day ? row.day : '';
+  document.getElementById('edit-day').value = rowToDateStr(row);
 
   document.getElementById('edit-modal').classList.add('active');
   document.getElementById('edit-overlay').classList.add('active');
@@ -478,14 +580,24 @@ async function saveEdit(btn) {
   }
 
   try {
+    const when = readDateInput('edit-day');
     const row = await api(API.daily, {
       method: 'PUT',
-      body: JSON.stringify({ id, name, amount, day: document.getElementById('edit-day').value.trim() || null }),
+      body: JSON.stringify({
+        id,
+        name,
+        amount,
+        date: when.date,
+        year: when.year,
+        month: when.month,
+        day: when.day,
+      }),
     });
+    closeEditModal();
+    if (await applySavedRow(row)) return;
     const idx = dailyExpenses.findIndex((r) => r.id === id);
     if (idx >= 0) dailyExpenses[idx] = row;
     renderDaily();
-    closeEditModal();
     updateSummary();
   } catch (err) {
     alert('Không cập nhật được: ' + err.message);
@@ -565,12 +677,15 @@ async function saveEditFixed(btn) {
 
 function editIncomeItem(btn) {
   editingItem = btn.closest('.item');
+  const id = editingItem.getAttribute('data-id');
+  const row = incomes.find((r) => r.id === id);
   const title = editingItem.querySelector('.item-name').textContent;
   const amount = editingItem.getAttribute('data-amount') || '';
 
   document.getElementById('edit-income-title').textContent = title;
   document.getElementById('edit-income-name').value = title;
   document.getElementById('edit-income-amount').value = amount;
+  document.getElementById('edit-income-date').value = rowToDateStr(row);
 
   document.getElementById('edit-income-modal').classList.add('active');
   document.getElementById('edit-income-overlay').classList.add('active');
@@ -601,14 +716,24 @@ async function saveEditIncome(btn) {
   }
 
   try {
+    const when = readDateInput('edit-income-date');
     const row = await api(API.incomes, {
       method: 'PUT',
-      body: JSON.stringify({ id, name, amount }),
+      body: JSON.stringify({
+        id,
+        name,
+        amount,
+        date: when.date,
+        year: when.year,
+        month: when.month,
+        day: when.day,
+      }),
     });
+    closeEditIncomeModal();
+    if (await applySavedRow(row)) return;
     const idx = incomes.findIndex((r) => r.id === id);
     if (idx >= 0) incomes[idx] = row;
     renderIncomes();
-    closeEditIncomeModal();
     updateSummary();
   } catch (err) {
     alert('Không cập nhật được: ' + err.message);
@@ -622,11 +747,14 @@ async function saveEditIncome(btn) {
 
 function editCcItem(btn) {
   editingItem = btn.closest('.item');
+  const id = editingItem.getAttribute('data-id');
+  const row = ccSpendings.find((r) => r.id === id);
   const name = editingItem.querySelector('.item-name').textContent;
   const amount = parseAmt(editingItem.querySelector('.item-amount').textContent);
 
   document.getElementById('edit-cc-name').value = name;
   document.getElementById('edit-cc-amount').value = amount;
+  document.getElementById('edit-cc-date').value = rowToDateStr(row);
 
   document.getElementById('edit-cc-modal').classList.add('active');
   document.getElementById('edit-cc-overlay').classList.add('active');
@@ -657,14 +785,24 @@ async function saveEditCc(btn) {
   }
 
   try {
+    const when = readDateInput('edit-cc-date');
     const row = await api(API.cc, {
       method: 'PUT',
-      body: JSON.stringify({ id, card_name: name, amount }),
+      body: JSON.stringify({
+        id,
+        card_name: name,
+        amount,
+        date: when.date,
+        year: when.year,
+        month: when.month,
+        day: when.day,
+      }),
     });
+    closeEditCcModal();
+    if (await applySavedRow(row)) return;
     const idx = ccSpendings.findIndex((r) => r.id === id);
     if (idx >= 0) ccSpendings[idx] = row;
     renderCc();
-    closeEditCcModal();
   } catch (err) {
     alert('Không cập nhật được: ' + err.message);
   } finally {
@@ -767,10 +905,10 @@ function exportCsv() {
         '',
         csvEscape(row.name),
         row.amount,
+        row.day ?? '',
         '',
-        '',
-        viewMonth,
-        viewYear,
+        row.month ?? viewMonth,
+        row.year ?? viewYear,
       ].join(',')
     );
   });
@@ -800,25 +938,26 @@ function exportCsv() {
         '',
         csvEscape(row.name),
         row.amount,
+        row.day ?? '',
         '',
-        '',
-        viewMonth,
-        viewYear,
+        row.month ?? viewMonth,
+        row.year ?? viewYear,
       ].join(',')
     );
   });
 
   ccSpendings.forEach((row) => {
+    const dateLabel = row.transaction_date ? String(row.transaction_date).slice(0, 10) : '';
     lines.push(
       [
         'Thẻ tín dụng',
         '',
         csvEscape(row.card_name),
         row.amount,
+        dateLabel,
         '',
-        '',
-        viewMonth,
-        viewYear,
+        row.month ?? viewMonth,
+        row.year ?? viewYear,
       ].join(',')
     );
   });

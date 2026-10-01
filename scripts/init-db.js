@@ -69,6 +69,7 @@ async function initDB() {
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         name VARCHAR(255) NOT NULL,
         amount INTEGER NOT NULL,
+        day INTEGER,
         year INTEGER NOT NULL DEFAULT ${SEED_YEAR},
         month INTEGER NOT NULL DEFAULT ${SEED_MONTH},
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -94,6 +95,17 @@ async function initDB() {
     await ensureMonthColumns('incomes');
     await ensureMonthColumns('credit_card_spendings');
     await client.query(`ALTER TABLE daily_expenses ADD COLUMN IF NOT EXISTS day INTEGER`);
+    await client.query(`ALTER TABLE incomes ADD COLUMN IF NOT EXISTS day INTEGER`);
+    await client.query(`
+      UPDATE daily_expenses
+      SET day = COALESCE(day, EXTRACT(DAY FROM created_at)::int)
+      WHERE day IS NULL
+    `);
+    await client.query(`
+      UPDATE incomes
+      SET day = COALESCE(day, EXTRACT(DAY FROM created_at)::int)
+      WHERE day IS NULL
+    `);
     console.log('Ensured year/month/day columns');
 
     await client.query(`
