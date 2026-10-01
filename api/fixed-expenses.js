@@ -50,6 +50,10 @@ module.exports = async function handler(req, res) {
       const due_day = body.due_day === '' || body.due_day == null ? null : parseInt(body.due_day, 10);
       const is_paid = Boolean(body.is_paid);
 
+      const { rows: current } = await pool.query('SELECT name, category FROM fixed_expenses WHERE id = $1', [id]);
+      if (!current[0]) return send(res, 404, { error: 'Not found' });
+      const { name, category } = current[0];
+
       const { rows } = await pool.query(
         `UPDATE fixed_expenses
          SET estimate_amount = $1, actual_amount = $2, due_day = $3, is_paid = $4
@@ -57,6 +61,15 @@ module.exports = async function handler(req, res) {
          RETURNING ${COLS}`,
         [estimate_amount, actual_amount, due_day, is_paid, id]
       );
+      
+      // Update due_day for all months for this same fixed expense
+      await pool.query(
+        `UPDATE fixed_expenses
+         SET due_day = $1
+         WHERE name = $2 AND category = $3`,
+        [due_day, name, category]
+      );
+
       if (!rows[0]) return send(res, 404, { error: 'Not found' });
       return send(res, 200, rows[0]);
     }
