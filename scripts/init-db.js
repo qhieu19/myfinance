@@ -56,6 +56,7 @@ async function initDB() {
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         name VARCHAR(255) NOT NULL,
         amount INTEGER NOT NULL,
+        day INTEGER,
         year INTEGER NOT NULL DEFAULT ${SEED_YEAR},
         month INTEGER NOT NULL DEFAULT ${SEED_MONTH},
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -92,7 +93,8 @@ async function initDB() {
     await ensureMonthColumns('daily_expenses');
     await ensureMonthColumns('incomes');
     await ensureMonthColumns('credit_card_spendings');
-    console.log('Ensured year/month columns');
+    await client.query(`ALTER TABLE daily_expenses ADD COLUMN IF NOT EXISTS day INTEGER`);
+    console.log('Ensured year/month/day columns');
 
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_fixed_ym ON fixed_expenses (year, month);
@@ -149,8 +151,8 @@ async function initDB() {
       const { rows: anyDaily } = await client.query('SELECT COUNT(*)::int AS n FROM daily_expenses');
       if (anyDaily[0].n === 0) {
         await client.query(`
-          INSERT INTO daily_expenses (name, amount, year, month) VALUES
-            ('Đi chợ', 250000, $1, $2);
+          INSERT INTO daily_expenses (name, amount, day, year, month) VALUES
+            ('Đi chợ', 250000, 15, $1, $2);
         `, [SEED_YEAR, SEED_MONTH]);
         console.log('Seeded daily_expenses for', SEED_MONTH, SEED_YEAR);
       }

@@ -273,7 +273,7 @@ function renderDaily() {
       <li class="item" data-id="${row.id}">
         <div class="item-body">
           <span class="item-name">${escHtml(row.name)}</span>
-          <span class="item-meta">${escHtml(formatMetaDate(row.created_at) || 'Chi tiêu')}</span>
+          <span class="item-meta">${row.day ? 'Ngày ' + row.day : escHtml(formatMetaDate(row.created_at) || 'Chi tiêu')}</span>
         </div>
         <div class="item-right">
           <span class="item-amount unpaid">${fmt(row.amount)}</span>
@@ -337,11 +337,14 @@ function openModal() {
   document.getElementById('input-name').value = '';
   document.getElementById('input-amount').value = '';
   document.getElementById('input-due').value = '';
+  document.getElementById('input-day').value = '';
   document.getElementById('input-category').value = 'Tiền Sinh Hoạt';
 
   const isFixed = currentTab === 'fixed';
+  const isDaily = currentTab === 'daily';
   document.getElementById('group-category').style.display = isFixed ? '' : 'none';
   document.getElementById('group-due').style.display = isFixed ? '' : 'none';
+  document.getElementById('group-day').style.display = isDaily ? '' : 'none';
   document.getElementById('label-amount').textContent = isFixed ? 'Dự tính (₫)' : 'Số tiền (₫)';
 
   const titles = {
@@ -418,7 +421,7 @@ async function saveExpense(btn) {
     } else {
       const row = await api(API.daily, {
         method: 'POST',
-        body: JSON.stringify(ymBody({ name, amount })),
+        body: JSON.stringify(ymBody({ name, amount, day: document.getElementById('input-day').value.trim() || null })),
       });
       dailyExpenses.unshift(row);
       renderDaily();
@@ -439,9 +442,12 @@ function editItem(btn) {
   editingItem = btn.closest('.item');
   const name = editingItem.querySelector('.item-name').textContent;
   const amount = parseAmt(editingItem.querySelector('.item-amount').textContent);
+  const id = editingItem.getAttribute('data-id');
+  const row = dailyExpenses.find((r) => r.id === id);
 
   document.getElementById('edit-name').value = name;
   document.getElementById('edit-amount').value = amount;
+  document.getElementById('edit-day').value = row && row.day ? row.day : '';
 
   document.getElementById('edit-modal').classList.add('active');
   document.getElementById('edit-overlay').classList.add('active');
@@ -474,7 +480,7 @@ async function saveEdit(btn) {
   try {
     const row = await api(API.daily, {
       method: 'PUT',
-      body: JSON.stringify({ id, name, amount }),
+      body: JSON.stringify({ id, name, amount, day: document.getElementById('edit-day').value.trim() || null }),
     });
     const idx = dailyExpenses.findIndex((r) => r.id === id);
     if (idx >= 0) dailyExpenses[idx] = row;

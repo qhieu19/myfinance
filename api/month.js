@@ -19,12 +19,8 @@ module.exports = async function handler(req, res) {
       'SELECT COUNT(*)::int AS n FROM fixed_expenses WHERE year = $1 AND month = $2',
       [year, month]
     );
-    const { rows: existingIncome } = await pool.query(
-      'SELECT COUNT(*)::int AS n FROM incomes WHERE year = $1 AND month = $2',
-      [year, month]
-    );
 
-    if (existingFixed[0].n > 0 && existingIncome[0].n > 0) {
+    if (existingFixed[0].n > 0) {
       return send(res, 200, { copied: false, reason: 'already_has_data' });
     }
 
@@ -57,23 +53,7 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    const { rows: latestIncomeMeta } = await pool.query(
-      `SELECT year, month FROM incomes
-       WHERE (year < $1) OR (year = $1 AND month < $2)
-       ORDER BY year DESC, month DESC LIMIT 1`,
-      [year, month]
-    );
-    let incomeSource = [];
-    if (latestIncomeMeta[0]) {
-      const r = await pool.query(
-        `SELECT name, amount FROM incomes WHERE year = $1 AND month = $2 ORDER BY created_at ASC`,
-        [latestIncomeMeta[0].year, latestIncomeMeta[0].month]
-      );
-      incomeSource = r.rows;
-    }
-
     let copiedFixed = 0;
-    let copiedIncome = 0;
 
     if (existingFixed[0].n === 0 && fixedSource.length) {
       for (const row of fixedSource) {
@@ -87,20 +67,9 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    if (existingIncome[0].n === 0 && incomeSource.length) {
-      for (const row of incomeSource) {
-        await pool.query(
-          `INSERT INTO incomes (name, amount, year, month) VALUES ($1, $2, $3, $4)`,
-          [row.name, row.amount, year, month]
-        );
-        copiedIncome += 1;
-      }
-    }
-
     return send(res, 200, {
-      copied: copiedFixed > 0 || copiedIncome > 0,
+      copied: copiedFixed > 0,
       copiedFixed,
-      copiedIncome,
     });
   } catch (err) {
     console.error(err);
